@@ -1,9 +1,11 @@
 //! Colour definitions.
 
-use super::error::{Error, Result};
+use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
 use std::{fmt::Display, str::FromStr};
+
+use super::error::{Error, Result};
 
 /// A true-colour definition.
 #[derive(Copy, Clone, Debug, DeserializeFromStr, SerializeDisplay)]
@@ -111,8 +113,8 @@ pub const EGA: Ega = Ega {
 pub type Map<Id> = HashMap<Id, Definition>;
 
 /// Pair of foreground and background colour maps.
-#[derive(Debug, Clone)]
-pub struct MapSet<Fg, Bg> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MapSet<Fg: super::id::Fg, Bg: super::id::Bg> {
     /// Foreground colour space.
     pub fg: Map<Fg>,
     /// Background colour space.
