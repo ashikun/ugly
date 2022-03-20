@@ -17,6 +17,7 @@ pub struct Manager<FId, Fg, Bg> {
 
 impl<FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<FId, Fg, Bg> {
     /// Creates a new rendering manager over a given SDL2 canvas.
+    #[must_use]
     pub fn new(
         screen: sdl2::render::Canvas<sdl2::video::Window>,
         fonts: font::path::Map<FId>,
@@ -32,7 +33,11 @@ impl<FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<FId, Fg, Bg>
     }
 
     /// Spawns a renderer targeting the SDL window.
-    fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg>> {
+    ///
+    /// # Errors
+    ///
+    /// Fails if we can't set up the font metrics map.
+    pub fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg>> {
         let metrics = font::metrics::load_map(&self.fonts)?;
         let font_manager =
             super::font::Manager::new(&self.textures, &self.fonts, metrics, &self.colours.fg);

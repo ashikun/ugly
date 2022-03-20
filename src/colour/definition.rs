@@ -114,10 +114,18 @@ pub type Map<Id> = HashMap<Id, Definition>;
 
 /// Pair of foreground and background colour maps.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MapSet<Fg: super::id::Fg, Bg: super::id::Bg> {
+pub struct MapSet<Fg, Bg> {
     /// Foreground colour space.
+    #[serde(bound(
+        serialize = "Fg: super::id::Fg + Serialize",
+        deserialize = "Fg: super::id::Fg + Deserialize<'de>"
+    ))]
     pub fg: Map<Fg>,
     /// Background colour space.
+    #[serde(bound(
+        serialize = "Bg: super::id::Bg + Serialize",
+        deserialize = "Bg: super::id::Bg + Deserialize<'de>"
+    ))]
     pub bg: Map<Bg>,
 }
 

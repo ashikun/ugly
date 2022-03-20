@@ -32,6 +32,10 @@ pub trait Renderer<FId, Fg, Bg> {
     // TODO(@MattWindsor91): replace these with RAII
 
     /// Clears the screen to the given background colour.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the renderer fails to clear the screen.
     fn clear(&mut self, colour: Bg) -> error::Result<()>;
 
     /// Refreshes the screen.

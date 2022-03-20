@@ -79,7 +79,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg> Manager<'a, FId, Fg> {
     }
 
     fn colourise(&self, texture: &mut Texture, colour: Fg) {
-        let colour = colour::definition::fg_or_white(&self.colour_set, colour);
+        let colour = colour::definition::fg_or_white(self.colour_set, colour);
         texture.set_color_mod(colour.red_byte(), colour.green_byte(), colour.blue_byte());
         texture.set_alpha_mod(colour.alpha_byte());
     }
