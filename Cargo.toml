@@ -1,0 +1,17 @@
+[package]
+name = "ugly"
+version = "0.1.0"
+authors = ["Ashi Stanmore <me@ashikun.xyz>"]
+edition = "2021"
+
+[features]
+# Enables the SDL backend.
+backend_sdl = [ "sdl2" ]
+
+[dependencies]
+css-color-parser = "0.1.2"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_with = "1.12.0"
+thiserror = "1.0.30"
+toml = "0.5.8"
+sdl2 = { version = "0.35.2", features = ["image"], optional = true }
