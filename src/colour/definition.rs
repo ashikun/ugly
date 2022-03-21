@@ -113,9 +113,7 @@ pub const EGA: Ega = Ega {
 pub type Map<Id> = HashMap<Id, Definition>;
 
 /// Pair of foreground and background colour maps.
-///
-/// The default map set contains no mappings for either foreground or background.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapSet<Fg, Bg> {
     /// Foreground colour space.
     #[serde(bound(
@@ -129,6 +127,17 @@ pub struct MapSet<Fg, Bg> {
         deserialize = "Bg: super::id::Bg + Deserialize<'de>"
     ))]
     pub bg: Map<Bg>,
+}
+
+/// The default map set contains no mappings for either foreground or background.
+/// We can't automatically derive it because it would put undue restrictions on Fg/Bg.
+impl<Fg, Bg> Default for MapSet<Fg, Bg> {
+    fn default() -> Self {
+        Self {
+            fg: Map::default(),
+            bg: Map::default(),
+        }
+    }
 }
 
 impl<Fg: super::id::Fg, Bg: super::id::Bg> MapSet<Fg, Bg> {
