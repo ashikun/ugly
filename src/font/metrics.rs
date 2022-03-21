@@ -14,11 +14,14 @@ use serde::{Deserialize, Serialize};
 const NUM_COLS: u8 = 32;
 
 /// A font metrics set.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+///
+/// The default metrics set has everything set to zero, and is useless for anything other than
+/// preventing a panic or hard error if font metrics are missing.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Metrics {
     /// Dimensions of one character in the font, without padding.
     ///
-    /// This is the size of one cell in the texture grid, and so will
+    /// This is also the size of one cell in the texture grid.
     pub char: Size,
     /// Dimensions of padding between characters in the font.
     pub pad: Size,
