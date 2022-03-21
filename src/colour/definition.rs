@@ -113,7 +113,9 @@ pub const EGA: Ega = Ega {
 pub type Map<Id> = HashMap<Id, Definition>;
 
 /// Pair of foreground and background colour maps.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// The default map set contains no mappings for either foreground or background.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MapSet<Fg, Bg> {
     /// Foreground colour space.
     #[serde(bound(
@@ -143,6 +145,12 @@ impl<Fg: super::id::Fg, Bg: super::id::Bg> MapSet<Fg, Bg> {
             .get(&id)
             .copied()
             .unwrap_or(super::definition::EGA.dark.black)
+    }
+
+    /// Merges the definitions into `other` into this map-set.
+    pub fn merge(&mut self, other: &Self) {
+        self.fg.extend(other.fg.iter());
+        self.bg.extend(other.bg.iter());
     }
 }
 
