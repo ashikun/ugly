@@ -7,21 +7,22 @@ use crate::{colour, font, Result};
 /// Manages top-level SDL resources.
 ///
 /// As usual, `FId` is the type of font identifiers, `Fg` the type of foreground colour identifiers,
-/// and `Bg` the type of background colour identifiers.
-pub struct Manager<FId, Fg, Bg> {
+/// and `Bg` the type of background colour identifiers.  `c` is the lifetime of the configuration
+/// used by the manager.
+pub struct Manager<'c, FId, Fg, Bg> {
     screen: RefCell<sdl2::render::Canvas<sdl2::video::Window>>,
     textures: sdl2::render::TextureCreator<sdl2::video::WindowContext>,
-    fonts: font::path::Map<FId>,
-    colours: colour::MapSet<Fg, Bg>,
+    fonts: &'c font::path::Map<FId>,
+    colours: &'c colour::MapSet<Fg, Bg>,
 }
 
-impl<FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<FId, Fg, Bg> {
+impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<'c, FId, Fg, Bg> {
     /// Creates a new rendering manager over a given SDL2 canvas.
     #[must_use]
     pub fn new(
         screen: sdl2::render::Canvas<sdl2::video::Window>,
-        fonts: font::path::Map<FId>,
-        colours: colour::MapSet<Fg, Bg>,
+        fonts: &'c font::path::Map<FId>,
+        colours: &'c colour::MapSet<Fg, Bg>,
     ) -> Self {
         let textures = screen.texture_creator();
         Self {
@@ -38,13 +39,13 @@ impl<FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<FId, Fg, Bg>
     ///
     /// Fails if we can't set up the font metrics map.
     pub fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg>> {
-        let metrics = font::metrics::load_map(&self.fonts)?;
+        let metrics = font::metrics::load_map(self.fonts)?;
         let font_manager =
-            super::font::Manager::new(&self.textures, &self.fonts, metrics, &self.colours.fg);
+            super::font::Manager::new(&self.textures, self.fonts, metrics, &self.colours.fg);
         Ok(super::render::Renderer::new(
             self.screen.borrow_mut(),
             font_manager,
-            &self.colours,
+            self.colours,
         ))
     }
 }
