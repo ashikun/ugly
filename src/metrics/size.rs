@@ -2,10 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Type of pixel lengths (and deltas on lengths).
-///
-/// We keep both lengths and deltas signed to avoid needing to do a lot of type conversion.
-pub type Length = i32;
+use super::length::{self, Length};
 
 /// A two-dimensional size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -28,10 +25,10 @@ impl Size {
     /// assert_eq!(Size{w: 40, h: 20}, Size{w: 42, h:22}.grow(-2));
     /// ```
     #[must_use]
-    pub fn grow(self, amount: Length) -> Self {
+    pub const fn grow(self, amount: Length) -> Self {
         Self {
-            w: (self.w + amount).max(0),
-            h: (self.h + amount).max(0),
+            w: length::clamp(self.w + amount),
+            h: length::clamp(self.h + amount),
         }
     }
 
@@ -78,7 +75,36 @@ impl Size {
     /// ```
     #[must_use]
     pub const fn is_zero(&self) -> bool {
-        self.h <= 0 || self.w <= 0
+        self.w <= 0 || self.h <= 0
+    }
+
+    /// Gets whether both dimensions of this size are non-negative.
+    ///
+    /// ```
+    /// use ugly::metrics::Size;
+    ///
+    /// assert!(Size{w: 10, h: 10}.is_normal());
+    /// assert!(Size{w: 5, h: 0}.is_normal());
+    /// assert!(!Size{w: -5, h: 10}.is_normal());
+    /// ```
+    #[must_use]
+    pub const fn is_normal(&self) -> bool {
+        0 <= self.w && 0 <= self.h
+    }
+
+    /// Clamps negative dimensions to zero.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use ugly::metrics::Size;
+    ///
+    /// assert!(Size{w: -5, h: 10}.clamp().is_normal())
+    /// ```
+    #[must_use]
+    pub const fn clamp(&self) -> Self {
+        // `grow` clamps as a side-effect, so growing by 0 is akin to clamping
+        self.grow(0)
     }
 }
 

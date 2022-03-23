@@ -3,7 +3,7 @@
 use super::{
     anchor::{self, Anchor},
     point::{Coord, Point},
-    size::{Length, Size},
+    Length, Size,
 };
 
 /// Output-independent rectangle.
