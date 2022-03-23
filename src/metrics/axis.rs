@@ -1,4 +1,5 @@
-/// Two-dimensional axes.
+//! Two-dimensional axes.
+
 use super::Size;
 
 /// Enumerates the axes in a `Size` or `Rect`.

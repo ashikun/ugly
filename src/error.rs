@@ -1,7 +1,8 @@
-//! Errors for the zombiesplit graphics library.
+//! Top-level errors for `ugly`.
+
 use thiserror::Error;
 
-/// A user interface error.
+/// An `ugly` error.
 #[derive(Debug, Error)]
 pub enum Error {
     /// A formatting error has occurred.

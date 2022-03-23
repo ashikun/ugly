@@ -1,7 +1,6 @@
 //! Font specifications.
 
-use std::fmt::Debug;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 /// Trait containing all functionality a font identifier should support.
 ///

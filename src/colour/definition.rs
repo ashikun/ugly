@@ -1,9 +1,10 @@
 //! Colour definitions.
 
-use serde::{Deserialize, Serialize};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::collections::HashMap;
 use std::{fmt::Display, str::FromStr};
+
+use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 use super::error::{Error, Result};
 

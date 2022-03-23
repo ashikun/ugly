@@ -1,4 +1,5 @@
 //! The font manager.
+
 use std::{collections::HashMap, rc::Rc};
 
 use sdl2::{
@@ -18,7 +19,7 @@ pub struct Manager<'a, FId, Fg> {
     /// The map of current font textures.
     textures: HashMap<font::Spec<FId, Fg>, Rc<Texture<'a>>>,
     /// The font path set.
-    font_set: &'a font::path::Map<FId>,
+    font_set: &'a font::Map<FId>,
     /// The font metrics set.
     pub metrics_set: font::metrics::Map<FId>,
     /// The foreground colour set, used for setting up font colours.
@@ -30,7 +31,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg> Manager<'a, FId, Fg> {
     #[must_use]
     pub fn new(
         creator: &'a TextureCreator<WindowContext>,
-        font_set: &'a font::path::Map<FId>,
+        font_set: &'a font::Map<FId>,
         metrics_set: font::metrics::Map<FId>,
         colour_set: &'a colour::Map<Fg>,
     ) -> Self {

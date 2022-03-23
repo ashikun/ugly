@@ -2,13 +2,13 @@
 
 use std::cell::RefMut;
 
-use crate::font::Metrics;
+use sdl2::{render::Canvas, video};
+
 use crate::{
     colour,
     error::{Error, Result},
     font, metrics, render,
 };
-use sdl2::{render::Canvas, video};
 
 /// The SDL window graphics renderer.
 ///
@@ -44,7 +44,9 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> render::Renderer
                 .dst
                 .point(metrics.pad.w, 0, metrics::Anchor::TOP_RIGHT);
 
-            self.screen.copy(&texture, src, dst).map_err(Error::Backend)?;
+            self.screen
+                .copy(&texture, src, dst)
+                .map_err(Error::Backend)?;
         }
 
         Ok(pos)
@@ -94,7 +96,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Renderer<'a, FId
             .set_draw_color(colour_to_sdl(self.colour_set.bg_or_black(bg)));
     }
 
-    fn get_metrics(&mut self, id: FId) -> font::Result<Metrics> {
+    fn get_metrics(&mut self, id: FId) -> font::Result<font::Metrics> {
         // TODO(@MattWindsor91): can we replace font_metrics() with this?
         self.font_manager
             .metrics_set

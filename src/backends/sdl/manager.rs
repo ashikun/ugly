@@ -12,7 +12,7 @@ use crate::{colour, font, Result};
 pub struct Manager<'c, FId, Fg, Bg> {
     screen: RefCell<sdl2::render::Canvas<sdl2::video::Window>>,
     textures: sdl2::render::TextureCreator<sdl2::video::WindowContext>,
-    fonts: &'c font::path::Map<FId>,
+    fonts: &'c font::Map<FId>,
     colours: &'c colour::MapSet<Fg, Bg>,
 }
 
@@ -21,7 +21,7 @@ impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<'c, FId,
     #[must_use]
     pub fn new(
         screen: sdl2::render::Canvas<sdl2::video::Window>,
-        fonts: &'c font::path::Map<FId>,
+        fonts: &'c font::Map<FId>,
         colours: &'c colour::MapSet<Fg, Bg>,
     ) -> Self {
         let textures = screen.texture_creator();

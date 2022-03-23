@@ -1,11 +1,16 @@
 //! Font metrics.
+
 use std::collections::HashMap;
 
-use super::super::metrics::{
-    anchor::{self, Anchor},
-    Length, Point, Rect, Size,
-};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    font,
+    metrics::{
+        anchor::{self, Anchor},
+        Length, Point, Rect, Size,
+    },
+};
 
 // We hardcode the general layout of a font texture using the following
 // constants:
@@ -208,7 +213,7 @@ pub type Map<FId> = HashMap<FId, Metrics>;
 /// # Errors
 ///
 /// Fails if a metrics file isn't present, or is malformed, et cetera.
-pub fn load_map<FId: super::Id>(paths: &super::path::Map<FId>) -> super::Result<Map<FId>> {
+pub fn load_map<FId: super::Id>(paths: &font::Map<FId>) -> super::Result<Map<FId>> {
     paths.iter().map(|(k, v)| Ok((*k, v.metrics()?))).collect()
 }
 

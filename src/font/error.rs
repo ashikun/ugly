@@ -1,5 +1,5 @@
 //! Errors raised by the font subsystem.
-use crate::font::Error::UnknownFont;
+
 use thiserror::Error;
 
 /// A font error.
@@ -27,7 +27,7 @@ impl Error {
     #[must_use]
     pub fn unknown_font(id: impl super::Id) -> Self {
         // font IDs are debuggable, so we use that in the representation
-        UnknownFont(format!("{id:?}"))
+        Self::UnknownFont(format!("{id:?}"))
     }
 }
 

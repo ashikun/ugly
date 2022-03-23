@@ -1,7 +1,8 @@
 //! Mid-level text composition interface.
 
-use crate::{colour, error, font, metrics, render};
 use std::marker;
+
+use crate::{colour, error, font, metrics, render};
 
 /// Helper for positioned writing of strings.
 pub struct Writer<'r, FId, Fg, Bg, R> {

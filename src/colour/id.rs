@@ -1,4 +1,4 @@
-//! Traits for colour identifers.
+//! Traits for colour identifiers.
 
 use std::hash::Hash;
 
