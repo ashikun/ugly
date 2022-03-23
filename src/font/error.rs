@@ -9,9 +9,9 @@ pub enum Error {
     #[error("IO error reading font file")]
     Io(#[from] std::io::Error),
 
-    /// An error occurred while loading a metrics TOML file.
-    #[error("Error parsing metrics file from TOML")]
-    Toml(#[from] toml::de::Error),
+    /// An error occurred while loading a metrics file.
+    #[error("Error parsing metrics file")]
+    MetricsParse(#[from] ron::de::Error),
 
     /// Error loading a texture file.
     #[error("Error loading font texture")]

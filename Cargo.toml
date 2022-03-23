@@ -13,5 +13,5 @@ css-color-parser = "0.1.2"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_with = "1.12.0"
 thiserror = "1.0.30"
-toml = "0.5.8"
+ron = "0.7.0"
 sdl2 = { version = "0.35.2", features = ["image"], optional = true }

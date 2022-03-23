@@ -13,7 +13,7 @@ pub use spec::{Id, Spec};
 /// A font.
 ///
 /// In `ugly`, a font is a directory containing two items: a texture file (PNG), and a metrics file
-/// (TOML).
+/// (RON).
 #[derive(Clone, Debug)]
 pub struct Font(std::path::PathBuf);
 
@@ -45,11 +45,10 @@ impl Font {
     ///
     /// # Errors
     ///
-    /// Returns an error if the font metrics file is unreachable or unparseable
-    /// as TOML.
+    /// Returns an error if the font metrics file is unreachable or unparseable as RON.
     pub fn metrics(&self) -> Result<Metrics> {
         let str = std::fs::read_to_string(self.0.join(METRICS_FILE))?;
-        Ok(toml::from_str(&str)?)
+        Ok(ron::from_str(&str)?)
     }
 }
 
@@ -57,6 +56,6 @@ impl Font {
 pub type Map<FId> = HashMap<FId, Font>;
 
 /// The metrics filename.
-const METRICS_FILE: &str = "metrics.toml";
+const METRICS_FILE: &str = "metrics.ron";
 /// The texture filename.
 const TEXTURE_FILE: &str = "font.png";
