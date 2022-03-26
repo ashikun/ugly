@@ -5,7 +5,6 @@ use std::{collections::HashMap, rc::Rc};
 use sdl2::{
     image::LoadTexture,
     render::{Texture, TextureCreator},
-    video::WindowContext,
 };
 
 use crate::{colour, error::Result, font};
@@ -13,9 +12,9 @@ use crate::{colour, error::Result, font};
 /// A font manager, using a SDL texture creator.
 ///
 /// The lifeline `a` corresponds to the lifeline of the main resource manager.
-pub struct Manager<'a, FId, Fg> {
+pub struct Manager<'a, FId, Fg, Ctx> {
     /// The texture creator used to load fonts.
-    creator: &'a TextureCreator<WindowContext>,
+    creator: &'a TextureCreator<Ctx>,
     /// The map of current font textures.
     textures: HashMap<font::Spec<FId, Fg>, Rc<Texture<'a>>>,
     /// The font path set.
@@ -26,11 +25,11 @@ pub struct Manager<'a, FId, Fg> {
     colour_set: &'a colour::Map<Fg>,
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg> Manager<'a, FId, Fg> {
+impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
     /// Creates a font manager with the given texture creator and config maps.
     #[must_use]
     pub fn new(
-        creator: &'a TextureCreator<WindowContext>,
+        creator: &'a TextureCreator<Ctx>,
         font_set: &'a font::Map<FId>,
         metrics_set: font::metrics::Map<FId>,
         colour_set: &'a colour::Map<Fg>,

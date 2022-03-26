@@ -2,35 +2,46 @@
 
 use std::cell::RefCell;
 
-use crate::{colour, font, Result};
+use sdl2::render::{Canvas, RenderTarget, TextureCreator};
+
+use crate::{colour, font, Error, Result};
 
 /// Manages top-level SDL resources.
 ///
 /// As usual, `FId` is the type of font identifiers, `Fg` the type of foreground colour identifiers,
-/// and `Bg` the type of background colour identifiers.  `c` is the lifetime of the configuration
-/// used by the manager.
-pub struct Manager<'c, FId, Fg, Bg> {
-    screen: RefCell<sdl2::render::Canvas<sdl2::video::Window>>,
-    textures: sdl2::render::TextureCreator<sdl2::video::WindowContext>,
+/// and `Bg` the type of background colour identifiers.
+///
+/// `c` is the lifetime of the configuration used by the manager.
+///
+/// `Tgt` is the type of the underlying render target (window or screen).
+pub struct Manager<'c, FId, Fg, Bg, Tgt: Target> {
+    canvas: RefCell<sdl2::render::Canvas<Tgt>>,
+    textures: sdl2::render::TextureCreator<Tgt::Context>,
     fonts: &'c font::Map<FId>,
     colours: &'c colour::MapSet<Fg, Bg>,
 }
 
-impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<'c, FId, Fg, Bg> {
-    /// Creates a new rendering manager over a given SDL2 canvas.
-    #[must_use]
+impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: Target>
+    Manager<'c, FId, Fg, Bg, Tgt>
+{
+    /// Creates a new rendering manager over a given rendering target.
+    ///
+    /// # Errors
+    ///
+    /// Fails if we can't construct the requisite canvas for the target.  
     pub fn new(
-        screen: sdl2::render::Canvas<sdl2::video::Window>,
+        target: Tgt,
         fonts: &'c font::Map<FId>,
         colours: &'c colour::MapSet<Fg, Bg>,
-    ) -> Self {
-        let textures = screen.texture_creator();
-        Self {
-            screen: RefCell::new(screen),
+    ) -> Result<Self> {
+        let canvas = target.into_canvas()?;
+        let textures = Tgt::texture_creator(&canvas);
+        Ok(Self {
+            canvas: RefCell::new(canvas),
             textures,
             fonts,
             colours,
-        }
+        })
     }
 
     /// Spawns a renderer targeting the SDL window.
@@ -38,14 +49,53 @@ impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Manager<'c, FId,
     /// # Errors
     ///
     /// Fails if we can't set up the font metrics map.
-    pub fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg>> {
+    pub fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg, Tgt>> {
         let metrics = font::metrics::load_map(self.fonts)?;
         let font_manager =
             super::font::Manager::new(&self.textures, self.fonts, metrics, &self.colours.fg);
         Ok(super::render::Renderer::new(
-            self.screen.borrow_mut(),
+            self.canvas.borrow_mut(),
             font_manager,
             self.colours,
         ))
+    }
+}
+
+/// Extension trait to `RenderTarget` making it possible for the `Manager` to be generic over
+/// screens and windows.
+pub trait Target: RenderTarget + Sized {
+    /// Wraps self in a `Canvas`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the conversion does not work at the SDL level.
+    fn into_canvas(self) -> Result<Canvas<Self>>;
+
+    /// Gets a texture creator for this target.
+    ///
+    /// This is not exposed as part of `RenderTarget` upstream; there are probably good reasons for
+    /// this, but this trait is blissfully unaware of them.
+    fn texture_creator(canvas: &Canvas<Self>) -> TextureCreator<Self::Context>;
+}
+
+impl<'s> Target for sdl2::surface::Surface<'s> {
+    fn into_canvas(self) -> Result<Canvas<Self>> {
+        self.into_canvas().map_err(Error::Backend)
+    }
+
+    fn texture_creator(canvas: &Canvas<Self>) -> TextureCreator<Self::Context> {
+        canvas.texture_creator()
+    }
+}
+
+impl Target for sdl2::video::Window {
+    fn into_canvas(self) -> Result<Canvas<Self>> {
+        self.into_canvas()
+            .build()
+            .map_err(|e| Error::Backend(e.to_string()))
+    }
+
+    fn texture_creator(canvas: &Canvas<Self>) -> TextureCreator<Self::Context> {
+        canvas.texture_creator()
     }
 }

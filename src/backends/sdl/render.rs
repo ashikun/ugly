@@ -2,7 +2,7 @@
 
 use std::cell::RefMut;
 
-use sdl2::{render::Canvas, video};
+use sdl2::render::{Canvas, RenderTarget};
 
 use crate::{
     colour,
@@ -14,17 +14,18 @@ use crate::{
 ///
 /// As usual, the renderer is parameterised over the IDs for fonts (`FId`), foreground colours
 /// (`Fg`), and background colours (`Bg`).  Its lifetime `a` represents the parent resource manager.
-pub struct Renderer<'a, FId, Fg, Bg> {
+/// `Tgt` represents a rendering context.
+pub struct Renderer<'a, FId, Fg, Bg, Tgt: RenderTarget> {
     /// The target screen canvas.
-    screen: RefMut<'a, Canvas<video::Window>>,
+    canvas: RefMut<'a, Canvas<Tgt>>,
     /// The font manager.
-    font_manager: super::font::Manager<'a, FId, Fg>,
+    font_manager: super::font::Manager<'a, FId, Fg, Tgt::Context>,
     /// The colour set.
     colour_set: &'a colour::MapSet<Fg, Bg>,
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> render::Renderer<FId, Fg, Bg>
-    for Renderer<'a, FId, Fg, Bg>
+impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarget>
+    render::Renderer<FId, Fg, Bg> for Renderer<'a, FId, Fg, Bg, Tgt>
 {
     fn write(
         &mut self,
@@ -44,7 +45,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> render::Renderer
                 .dst
                 .point(metrics.pad.w, 0, metrics::Anchor::TOP_RIGHT);
 
-            self.screen
+            self.canvas
                 .copy(&texture, src, dst)
                 .map_err(Error::Backend)?;
         }
@@ -55,19 +56,19 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> render::Renderer
     fn fill(&mut self, rect: metrics::Rect, colour: Bg) -> Result<()> {
         let rect = super::metrics::convert_rect(&rect);
         self.set_screen_bg(colour);
-        self.screen.fill_rect(rect).map_err(Error::Backend)
+        self.canvas.fill_rect(rect).map_err(Error::Backend)
     }
 
     /// Clears the screen.
     fn clear(&mut self, colour: Bg) -> Result<()> {
         self.set_screen_bg(colour);
-        self.screen.clear();
+        self.canvas.clear();
         Ok(())
     }
 
     /// Refreshes the screen.
     fn present(&mut self) {
-        self.screen.present();
+        self.canvas.present();
     }
 
     fn font_metrics(&self) -> &font::metrics::Map<FId> {
@@ -75,16 +76,18 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> render::Renderer
     }
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Renderer<'a, FId, Fg, Bg> {
+impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarget>
+    Renderer<'a, FId, Fg, Bg, Tgt>
+{
     /// Constructs a [Renderer] using the given screen, font manager, and colour set.
     #[must_use]
     pub fn new(
-        screen: RefMut<'a, Canvas<video::Window>>,
-        font_manager: super::font::Manager<'a, FId, Fg>,
+        canvas: RefMut<'a, Canvas<Tgt>>,
+        font_manager: super::font::Manager<'a, FId, Fg, Tgt::Context>,
         colour_set: &'a colour::MapSet<Fg, Bg>,
     ) -> Self {
         Self {
-            screen,
+            canvas,
             font_manager,
             colour_set,
         }
@@ -92,7 +95,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg> Renderer<'a, FId
 
     // Sets the screen draw colour to `bg`.
     fn set_screen_bg(&mut self, bg: Bg) {
-        self.screen
+        self.canvas
             .set_draw_color(colour_to_sdl(self.colour_set.bg_or_black(bg)));
     }
 
