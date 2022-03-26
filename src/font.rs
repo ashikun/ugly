@@ -48,7 +48,8 @@ impl Font {
     /// Returns an error if the font metrics file is unreachable or unparseable as RON.
     pub fn metrics(&self) -> Result<Metrics> {
         let str = std::fs::read_to_string(self.0.join(METRICS_FILE))?;
-        Ok(ron::from_str(&str)?)
+        let spec: metrics::Spec = ron::from_str(&str)?;
+        spec.into_metrics()
     }
 }
 

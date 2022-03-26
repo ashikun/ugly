@@ -18,11 +18,71 @@ use crate::{
 /// The number of columns in a font.
 const NUM_COLS: u8 = 32;
 
+/// An on-disk font metrics specification.
+///
+/// This is expanded into a proper metrics set before consumption.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Spec {
+    /// Dimensions of one character in the font, without padding.
+    ///
+    /// This is also the size of one cell in the texture grid.
+    pub char: Size,
+    /// Dimensions of padding between characters in the font.
+    pub pad: Size,
+    /// Class-based width overrides for specific characters.
+    ///
+    /// Each override maps each of the characters in its given string to the given length.
+    ///
+    /// The font grid is determined by `char`, so this cannot make a character
+    /// wider than `char.x`.
+    #[serde(default)]
+    pub width_overrides: HashMap<String, Length>,
+}
+
+impl Spec {
+    /// Expands this metrics spec into a full metrics set.
+    ///
+    /// This precomputes width overrides.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the metrics spec is ill-formed (eg, a width override tries to make a character
+    /// longer than its grid width).
+    pub fn into_metrics(self) -> super::Result<Metrics> {
+        check_width_overrides(self.char.w, &self.width_overrides)?;
+        Ok(Metrics {
+            char: self.char,
+            pad: self.pad,
+            width_overrides: expand_width_overrides(self.width_overrides),
+        })
+    }
+}
+
+/// Expands width override classes.
+fn expand_width_overrides(map: HashMap<String, Length>) -> HashMap<char, Length> {
+    map.into_iter()
+        .flat_map(|(class, l)| class.chars().map(|c| (c, l)).collect::<Vec<_>>())
+        .collect()
+}
+
+/// Checks width override classes for inappropriate behaviour.
+fn check_width_overrides(grid_width: Length, map: &HashMap<String, Length>) -> super::Result<()> {
+    for override_width in map.values().copied() {
+        if grid_width < override_width {
+            return Err(super::Error::OverlyLargeOverride {
+                grid_width,
+                override_width,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// A font metrics set.
 ///
 /// The default metrics set has everything set to zero, and is useless for anything other than
 /// preventing a panic or hard error if font metrics are missing.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default)]
 pub struct Metrics {
     /// Dimensions of one character in the font, without padding.
     ///
@@ -34,7 +94,6 @@ pub struct Metrics {
     ///
     /// The font grid is determined by `char`, so this cannot make a character
     /// wider than `char.x`.
-    #[serde(default)]
     pub width_overrides: HashMap<char, Length>,
 }
 

@@ -18,8 +18,15 @@ pub enum Error {
     TextureLoad(String),
 
     /// We tried to configure or use a font using a nonexistent ID.
-    #[error("font id not recognised: {0}")]
+    #[error("Font ID not recognised: {0}")]
     UnknownFont(String),
+
+    /// We tried to use a width override to make a character larger than its bounding box.
+    #[error("Can't override a char to be larger than its grid ({grid_width} < {override_width})")]
+    OverlyLargeOverride {
+        grid_width: crate::metrics::Length,
+        override_width: crate::metrics::Length,
+    },
 }
 
 impl Error {
