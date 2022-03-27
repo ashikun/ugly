@@ -1,5 +1,7 @@
 //! Font metrics.
 
+pub mod width;
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -36,7 +38,7 @@ pub struct Spec {
     /// The font grid is determined by `char`, so this cannot make a character
     /// wider than `char.x`.
     #[serde(default)]
-    pub width_overrides: HashMap<String, Length>,
+    pub width_overrides: width::Spec,
 }
 
 impl Spec {
@@ -49,52 +51,27 @@ impl Spec {
     /// Fails if the metrics spec is ill-formed (eg, a width override tries to make a character
     /// longer than its grid width).
     pub fn into_metrics(self) -> super::Result<Metrics> {
-        check_width_overrides(self.char.w, &self.width_overrides)?;
+        let widths = self.width_overrides.into_map(self.char.w)?;
         Ok(Metrics {
             char: self.char,
             pad: self.pad,
-            width_overrides: expand_width_overrides(self.width_overrides),
+            widths,
         })
     }
-}
-
-/// Expands width override classes.
-fn expand_width_overrides(map: HashMap<String, Length>) -> HashMap<char, Length> {
-    map.into_iter()
-        .flat_map(|(class, l)| class.chars().map(|c| (c, l)).collect::<Vec<_>>())
-        .collect()
-}
-
-/// Checks width override classes for inappropriate behaviour.
-fn check_width_overrides(grid_width: Length, map: &HashMap<String, Length>) -> super::Result<()> {
-    for override_width in map.values().copied() {
-        if grid_width < override_width {
-            return Err(super::Error::OverlyLargeOverride {
-                grid_width,
-                override_width,
-            });
-        }
-    }
-    Ok(())
 }
 
 /// A font metrics set.
 ///
 /// The default metrics set has everything set to zero, and is useless for anything other than
 /// preventing a panic or hard error if font metrics are missing.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Metrics {
-    /// Dimensions of one character in the font, without padding.
-    ///
-    /// This is also the size of one cell in the texture grid.
+    /// Height of one character in the font, without padding.
     pub char: Size,
     /// Dimensions of padding between characters in the font.
     pub pad: Size,
-    /// Width overrides for specific characters.
-    ///
-    /// The font grid is determined by `char`, so this cannot make a character
-    /// wider than `char.x`.
-    pub width_overrides: HashMap<char, Length>,
+    /// Proportional character width map.
+    pub widths: width::Map,
 }
 
 impl Metrics {
@@ -140,14 +117,7 @@ impl Metrics {
     /// Like `span_w`, but calculates the width of `c` including any proportionality adjustments.
     #[must_use]
     pub fn span_w_char(&self, c: char) -> Length {
-        if c.len_utf8() == 1 {
-            let mut buf: [u8; 1] = [0];
-            let _ = c.encode_utf8(&mut buf);
-            self.glyph_size(buf[0]).w
-        } else {
-            // TODO(@MattWindsor91): maybe one day handle non-'high ASCII' UTF-8?
-            self.span_w(1)
-        }
+        self.widths.get(c)
     }
 
     /// Calculates the relative X-coordinate of `anchor` within `str`.
@@ -182,14 +152,13 @@ impl Metrics {
     }
 
     /// Calculates layout for a byte-string as a series of [Glyph]s.
-    pub fn layout_str<'a, B: AsRef<[u8]> + ?Sized>(
+    pub fn layout_str<'a, S: AsRef<str> + ?Sized>(
         &'a self,
         start: Point,
-        bytes: &'a B,
+        string: &'a S,
     ) -> impl Iterator<Item = Glyph> + 'a {
-        bytes.as_ref().iter().scan(start, move |point, char| {
-            // TODO(@MattWindsor91): proportionality
-            let src = self.glyph_rect(*char);
+        string.as_ref().chars().scan(start, move |point, char| {
+            let src = self.glyph_rect(char);
             let offset = src.size.w + self.pad.w;
             let next_point = point.offset(offset, 0);
             let dst_tl = std::mem::replace(point, next_point);
@@ -203,36 +172,28 @@ impl Metrics {
 
     /// Bounding box for a glyph in the texture.
     #[must_use]
-    fn glyph_rect(&self, char: u8) -> Rect {
+    fn glyph_rect(&self, char: char) -> Rect {
         self.glyph_top_left(char)
             .to_rect(self.glyph_size(char), Anchor::TOP_LEFT)
     }
 
     /// The top-left position of the glyph for `char` in the font.
     #[must_use]
-    fn glyph_top_left(&self, char: u8) -> Point {
-        Point {
-            x: glyph_axis(glyph_col(char), self.padded_w()),
-            y: glyph_axis(glyph_row(char), self.padded_h()),
-        }
+    fn glyph_top_left(&self, char: char) -> Point {
+        // TODO(@MattWindsor91): glyph atlasing for >ASCII characters
+        char_to_ascii(char).map_or_else(Point::default, |g| Point {
+            x: glyph_axis(glyph_col(g), self.padded_w()),
+            y: glyph_axis(glyph_row(g), self.padded_h()),
+        })
     }
 
     /// The size of the glyph for `char` in the font.
     #[must_use]
-    fn glyph_size(&self, char: u8) -> Size {
-        let mut size = self.char;
-
-        if let Some(w) = self.glyph_override(char) {
-            size.w = w;
+    fn glyph_size(&self, c: char) -> Size {
+        Size {
+            w: self.widths.get(c),
+            h: self.char.h,
         }
-
-        size
-    }
-
-    fn glyph_override(&self, char: u8) -> Option<Length> {
-        char::from_u32(char.into())
-            .and_then(|x| self.width_overrides.get(&x))
-            .copied()
     }
 }
 
@@ -281,24 +242,37 @@ mod tests {
     use super::*;
 
     fn big_font() -> Metrics {
-        Metrics {
+        Spec {
             char: Size { w: 9, h: 9 },
             pad: Size { w: 1, h: 1 },
-            width_overrides: HashMap::new(),
+            width_overrides: [("iI", 1)].into_iter().collect(),
         }
+        .into_metrics()
+        .expect("should not fail to expand metrics")
     }
 
     /// Tests that the X co-ordinate of `glyph_top_left` works correctly without
     /// overflow on a big bitmap.
     #[test]
     fn glyph_x_overflow() {
-        assert_eq!(big_font().glyph_top_left(31).x, 310);
+        assert_eq!(big_font().glyph_top_left(char::from(31)).x, 310);
     }
 
     /// Tests that the Y co-ordinate of `glyph_top_left` works correctly without
     /// overflow on a big bitmap.
     #[test]
     fn glyph_y_overflow() {
-        assert_eq!(big_font().glyph_top_left(255).y, 70);
+        assert_eq!(big_font().glyph_top_left(char::from(255)).y, 70);
     }
+
+    /// Tests that `span_w_str` appears to handle overrides properly.
+    #[test]
+    fn span_w_str_overrides() {
+        // 3*9 normal + 2*1 overrides + 4*1 padding
+        assert_eq!(big_font().span_w_str("Icing"), 33)
+    }
+}
+
+fn char_to_ascii(c: char) -> Option<u8> {
+    u8::try_from(c).ok()
 }
