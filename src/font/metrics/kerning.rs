@@ -81,7 +81,7 @@ impl Spec {
 ///
 /// This is very similar in principle to a width override table, but for spacing between character
 /// pairs.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Map {
     /// The specified kerning pairs.
     kerning_pairs: HashMap<(char, char), Length>,

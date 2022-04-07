@@ -68,7 +68,7 @@ impl Spec {
 ///
 /// The default metrics set has everything set to zero, and is useless for anything other than
 /// preventing a panic or hard error if font metrics are missing.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Metrics {
     /// Height of one character in the font, without padding.
     pub char: Size,

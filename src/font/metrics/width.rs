@@ -64,7 +64,7 @@ impl Spec {
 }
 
 /// Maps characters to their widths.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Map {
     /// The override map.
     overrides: HashMap<char, Length>,
