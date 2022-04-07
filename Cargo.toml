@@ -10,8 +10,8 @@ backend_sdl = [ "sdl2" ]
 
 [dependencies]
 css-color-parser = "0.1.2"
+ron = "0.7.0"
+sdl2 = { version = "0.35.2", features = ["image"], optional = true }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_with = "1.12.0"
 thiserror = "1.0.30"
-ron = "0.7.0"
-sdl2 = { version = "0.35.2", features = ["image"], optional = true }

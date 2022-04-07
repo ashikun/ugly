@@ -1,5 +1,6 @@
 //! Font metrics.
 
+pub mod kerning;
 pub mod width;
 
 use std::collections::HashMap;
@@ -39,6 +40,9 @@ pub struct Spec {
     /// wider than `char.x`.
     #[serde(default)]
     pub width_overrides: width::Spec,
+    /// Class-based kerning for specific characters.
+    #[serde(default)]
+    pub kerning: kerning::Spec,
 }
 
 impl Spec {
@@ -51,11 +55,11 @@ impl Spec {
     /// Fails if the metrics spec is ill-formed (eg, a width override tries to make a character
     /// longer than its grid width).
     pub fn into_metrics(self) -> super::Result<Metrics> {
-        let widths = self.width_overrides.into_map(self.char.w)?;
         Ok(Metrics {
             char: self.char,
             pad: self.pad,
-            widths,
+            widths: self.width_overrides.into_map(self.char.w)?,
+            kerning: self.kerning.into_map(self.pad.w)?,
         })
     }
 }
@@ -72,6 +76,8 @@ pub struct Metrics {
     pub pad: Size,
     /// Proportional character width map.
     pub widths: width::Map,
+    /// Kerning map.
+    pub kerning: kerning::Map,
 }
 
 impl Metrics {
@@ -157,17 +163,22 @@ impl Metrics {
         start: Point,
         string: &'a S,
     ) -> impl Iterator<Item = Glyph> + 'a {
-        string.as_ref().chars().scan(start, move |point, char| {
-            let src = self.glyph_rect(char);
-            let offset = src.size.w + self.pad.w;
-            let next_point = point.offset(offset, 0);
-            let dst_tl = std::mem::replace(point, next_point);
-            let dst = Rect {
-                top_left: dst_tl,
-                ..src
-            };
-            Some(Glyph { src, dst })
-        })
+        let init = (None, start);
+        string
+            .as_ref()
+            .chars()
+            .scan(init, move |(last_char, top_left), char| {
+                if let Some(c) = last_char.replace(char) {
+                    top_left.offset_mut(self.span_w_char(c) + self.kerning.spacing(c, char), 0);
+                }
+
+                let src = self.glyph_rect(char);
+                let dst = Rect {
+                    top_left: *top_left,
+                    ..src
+                };
+                Some(Glyph { src, dst })
+            })
     }
 
     /// Bounding box for a glyph in the texture.
@@ -246,6 +257,7 @@ mod tests {
             char: Size { w: 9, h: 9 },
             pad: Size { w: 1, h: 1 },
             width_overrides: [("iI", 1)].into_iter().collect(),
+            kerning: kerning::Spec::default(),
         }
         .into_metrics()
         .expect("should not fail to expand metrics")

@@ -1,5 +1,6 @@
 //! Errors raised by the font subsystem.
 
+use crate::font::metrics;
 use thiserror::Error;
 
 /// A font error.
@@ -27,6 +28,9 @@ pub enum Error {
         grid_width: crate::metrics::Length,
         override_width: crate::metrics::Length,
     },
+
+    #[error("Problem compiling kerning tables for font")]
+    Kerning(#[from] metrics::kerning::Error),
 }
 
 impl Error {
