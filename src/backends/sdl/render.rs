@@ -36,7 +36,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
         let texture = self.font_manager.texture(font)?;
         let metrics = self.get_metrics(font.id)?;
 
-        for glyph in metrics.layout_str(pos, s.as_bytes()) {
+        for glyph in metrics.layout_str(pos, s) {
             let src = super::metrics::convert_rect(&glyph.src);
             let dst = super::metrics::convert_rect(&glyph.dst);
 

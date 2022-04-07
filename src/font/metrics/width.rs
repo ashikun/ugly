@@ -74,6 +74,7 @@ pub struct Map {
 
 impl Map {
     /// Gets the length of a character.
+    #[must_use]
     pub fn get(&self, c: char) -> Length {
         self.overrides.get(&c).copied().unwrap_or(self.grid_width)
     }
