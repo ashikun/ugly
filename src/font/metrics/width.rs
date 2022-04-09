@@ -1,6 +1,6 @@
 //! Width override specifications and tables.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +38,7 @@ impl Spec {
     }
 
     /// Expands the overrides in this spec.
-    fn expand_map(self) -> HashMap<char, Length> {
+    fn expand_map(self) -> BTreeMap<char, Length> {
         self.0
             .into_iter()
             .flat_map(|(class, l)| class.chars().map(|c| (c, l)).collect::<Vec<_>>())
@@ -67,7 +67,7 @@ impl Spec {
 #[derive(Debug, Clone, Default)]
 pub struct Map {
     /// The override map.
-    overrides: HashMap<char, Length>,
+    overrides: BTreeMap<char, Length>,
     /// The default length, being the width of each cell in the font grid.
     grid_width: Length,
 }
