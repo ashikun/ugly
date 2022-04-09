@@ -3,7 +3,7 @@
 //! The general class-based kerning approach here is vaguely similar to `OpenType` class-based
 //! kerning: we have a left-table, a right-table, and pairwise adjustments between them.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -42,13 +42,15 @@ impl Spec {
     ///
     /// Fails if a kerning pair in the spec refers to a missing table.
     pub fn into_map(self, default_spacing: Length) -> Result<Map> {
-        let mut kerning_pairs = HashMap::new();
+        let mut kerning_pairs: BTreeMap<char, BTreeMap<char, Length>> = BTreeMap::new();
         for ((lclass, rclass), length) in &self.pairs {
             let lefts = self.class(Direction::Left, lclass)?;
             let rights = self.class(Direction::Right, rclass)?;
             for l in lefts.chars() {
-                for r in rights.chars() {
-                    kerning_pairs.insert((l, r), *length);
+                if let Some(lmap) = kerning_pairs.get_mut(&l) {
+                    lmap.extend(rights.chars().map(|r| (r, *length)));
+                } else {
+                    kerning_pairs.insert(l, rights.chars().map(|r| (r, *length)).collect());
                 }
             }
         }
@@ -84,7 +86,7 @@ impl Spec {
 #[derive(Clone, Debug, Default)]
 pub struct Map {
     /// The specified kerning pairs.
-    kerning_pairs: HashMap<(char, char), Length>,
+    kerning_pairs: BTreeMap<char, BTreeMap<char, Length>>,
     /// The default spacing between glyphs.
     default_spacing: Length,
 }
@@ -94,7 +96,8 @@ impl Map {
     #[must_use]
     pub fn spacing(&self, left: char, right: char) -> Length {
         self.kerning_pairs
-            .get(&(left, right))
+            .get(&left)
+            .and_then(|l| l.get(&right))
             .copied()
             .unwrap_or(self.default_spacing)
     }
