@@ -57,6 +57,17 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
             .map_or_else(|| self.cache(spec), Ok)
     }
 
+    /// Borrows font metrics for `id` from the font manager.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the font does not exist in the font map.
+    pub fn metrics(&self, id: FId) -> Result<&font::Metrics> {
+        self.metrics_set
+            .get(&id)
+            .ok_or_else(|| crate::Error::Font(font::Error::unknown_font(id)))
+    }
+
     fn cache(&mut self, spec: font::Spec<FId, Fg>) -> Result<Rc<Texture<'a>>> {
         let tex = Rc::new(self.load(spec)?);
         self.textures.insert(spec, tex.clone());

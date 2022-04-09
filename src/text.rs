@@ -15,9 +15,6 @@ pub struct Writer<'r, FId, Fg, Bg, R> {
     /// The specification of the font being used for writing.
     font_spec: font::Spec<FId, Fg>,
 
-    /// The metrics of the font being used for writing.
-    font_metrics: Option<font::Metrics>,
-
     /// Reference to the renderer being borrowed to do the rendering.
     renderer: &'r mut R,
 
@@ -31,16 +28,13 @@ impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
     ///
     /// The writer initially points to the origin and uses a left anchor.
     pub fn new(renderer: &'r mut R) -> Self {
-        let mut result = Self {
+        Self {
             renderer,
             font_spec: font::Spec::default(),
-            font_metrics: None,
             pos: metrics::Point::default(),
             alignment: metrics::anchor::X::Left,
             bg_phantom: marker::PhantomData::default(),
-        };
-        result.fetch_font_metrics();
-        result
+        }
     }
 
     /// Changes the writer to use font `font_spec`.
@@ -79,21 +73,9 @@ impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
         self
     }
 
-    /// Repopulates the font metrics.
-    ///
-    /// If the font metrics are missing, we store `None` into the metrics, which will cause an
-    /// error later on.
-    fn fetch_font_metrics(&mut self) {
-        self.font_metrics = self
-            .renderer
-            .font_metrics()
-            .get(&self.font_spec.id)
-            .cloned();
-    }
-
-    fn string_top_left(&self, s: &str) -> Option<metrics::Point> {
-        self.font_metrics
-            .as_ref()
+    fn string_top_left(&self, s: &str) -> error::Result<metrics::Point> {
+        self.renderer
+            .font_metrics(self.font_spec.id)
             .map(|m| self.pos.offset(-m.x_anchor_of_str(s, self.alignment), 0))
     }
 }
@@ -123,8 +105,8 @@ impl<'r, FId, Fg, Bg, R: render::Renderer<FId, Fg, Bg>> render::Renderer<FId, Fg
         self.renderer.present();
     }
 
-    fn font_metrics(&self) -> &font::metrics::Map<FId> {
-        self.renderer.font_metrics()
+    fn font_metrics(&self, font: FId) -> error::Result<&font::Metrics> {
+        self.renderer.font_metrics(font)
     }
 }
 
@@ -138,7 +120,7 @@ impl<
     > std::fmt::Write for Writer<'r, FId, Fg, Bg, R>
 {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        let pos = self.string_top_left(s).ok_or(std::fmt::Error)?;
+        let pos = self.string_top_left(s).map_err(|_| std::fmt::Error)?;
         self.pos = self
             .renderer
             .write(pos, self.font_spec, s)
