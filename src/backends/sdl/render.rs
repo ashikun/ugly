@@ -34,7 +34,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
         s: &str,
     ) -> Result<metrics::Point> {
         let texture = self.font_manager.texture(font)?;
-        let metrics = self.font_manager.metrics(font.id)?;
+        let metrics = self.font_manager.metrics_for(font.id)?;
 
         for glyph in metrics.layout_str(pos, s) {
             let src = super::metrics::convert_rect(&glyph.src);
@@ -71,8 +71,12 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
         self.canvas.present();
     }
 
-    fn font_metrics(&self, id: FId) -> crate::Result<&font::Metrics> {
-        self.font_manager.metrics(id)
+    fn font_metrics(&self) -> &font::metrics::Map<FId> {
+        &self.font_manager.metrics_set
+    }
+
+    fn font_metrics_for(&self, id: FId) -> Result<&font::Metrics> {
+        self.font_manager.metrics_for(id)
     }
 }
 

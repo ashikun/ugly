@@ -43,10 +43,13 @@ pub trait Renderer<FId, Fg, Bg> {
 
     // TODO(@MattWindsor91): make the below obsolete?
 
-    /// Borrows the font metrics for `font`.
+    /// Borrows the font metrics map.
+    fn font_metrics(&self) -> &font::metrics::Map<FId>;
+
+    /// Borrows font metrics for the given font.
     ///
     /// # Errors
     ///
-    /// Fails if the font metrics are unavailable for this font.
-    fn font_metrics(&self, font: FId) -> error::Result<&font::Metrics>;
+    /// Fails if the font is missing in the metrics map.
+    fn font_metrics_for(&self, id: FId) -> error::Result<&font::Metrics>;
 }

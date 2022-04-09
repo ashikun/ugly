@@ -62,7 +62,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
     /// # Errors
     ///
     /// Returns an error if the font does not exist in the font map.
-    pub fn metrics(&self, id: FId) -> Result<&font::Metrics> {
+    pub fn metrics_for(&self, id: FId) -> Result<&font::Metrics> {
         self.metrics_set
             .get(&id)
             .ok_or_else(|| crate::Error::Font(font::Error::unknown_font(id)))

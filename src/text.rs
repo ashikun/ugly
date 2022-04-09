@@ -75,7 +75,7 @@ impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
 
     fn string_top_left(&self, s: &str) -> error::Result<metrics::Point> {
         self.renderer
-            .font_metrics(self.font_spec.id)
+            .font_metrics_for(self.font_spec.id)
             .map(|m| self.pos.offset(-m.x_anchor_of_str(s, self.alignment), 0))
     }
 }
@@ -105,8 +105,12 @@ impl<'r, FId, Fg, Bg, R: render::Renderer<FId, Fg, Bg>> render::Renderer<FId, Fg
         self.renderer.present();
     }
 
-    fn font_metrics(&self, font: FId) -> error::Result<&font::Metrics> {
-        self.renderer.font_metrics(font)
+    fn font_metrics(&self) -> &font::metrics::Map<FId> {
+        self.renderer.font_metrics()
+    }
+
+    fn font_metrics_for(&self, font: FId) -> error::Result<&font::Metrics> {
+        self.renderer.font_metrics_for(font)
     }
 }
 
