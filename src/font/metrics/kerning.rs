@@ -92,12 +92,31 @@ pub struct Map {
 }
 
 impl Map {
-    /// Gets the spacing between `left` and `right`.
+    /// Gets the map of kerning pairs with `left` as the left character.
     #[must_use]
-    pub fn spacing(&self, left: char, right: char) -> Length {
-        self.kerning_pairs
-            .get(&left)
-            .and_then(|l| l.get(&right))
+    pub fn for_left(&self, left: char) -> LeftMap {
+        LeftMap {
+            rights: self.kerning_pairs.get(&left),
+            default_spacing: self.default_spacing,
+        }
+    }
+}
+
+/// The result of feeding a left character into the kerning map.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct LeftMap<'map> {
+    /// Map from right chars to length overrides.
+    rights: Option<&'map BTreeMap<char, Length>>,
+    /// The default spacing between glyphs.
+    default_spacing: Length,
+}
+
+impl<'map> LeftMap<'map> {
+    /// Gets the kerning between this map's leftward character and `right`.
+    #[must_use]
+    pub fn get(&self, right: char) -> Length {
+        self.rights
+            .and_then(|r| r.get(&right))
             .copied()
             .unwrap_or(self.default_spacing)
     }

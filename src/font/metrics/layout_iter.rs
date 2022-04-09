@@ -3,7 +3,8 @@
 use std::str::Chars;
 
 use super::{
-    super::metrics::{Point, Rect},
+    super::metrics::{Length, Point, Rect},
+    kerning::LeftMap,
     Glyph, Metrics,
 };
 
@@ -15,7 +16,7 @@ pub(super) struct LayoutIter<'met, 'str> {
     /// Ingress iterator for characters.
     chars: Chars<'str>,
     /// Information about the last character, used for spacing and kerning the next character.
-    last_char: Option<GlyphSrc>,
+    last_char: LastChar<'met>,
     /// Current top-left position.
     top_left: Point,
     /// Font metrics, used for spacing and kerning.
@@ -23,12 +24,12 @@ pub(super) struct LayoutIter<'met, 'str> {
 }
 
 /// A representation of a glyph and where to find it in the texture.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct GlyphSrc {
-    /// The character to be rendered.
-    pub char: char,
-    /// The glyph's location inside the texture map.
-    pub rect: Rect,
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct LastChar<'met> {
+    /// The last character's width.
+    width: Length,
+    /// The kerning information for the last character.
+    kerning: LeftMap<'met>,
 }
 
 impl<'met, 'str> Iterator for LayoutIter<'met, 'str> {
@@ -55,29 +56,25 @@ impl<'met, 'str> LayoutIter<'met, 'str> {
     ) -> Self {
         Self {
             chars: str.as_ref().chars(),
-            last_char: None,
+            last_char: LastChar::default(),
             top_left,
             metrics,
         }
     }
 
     fn layout_char(&mut self, char: char) -> Glyph {
-        let src = GlyphSrc {
-            char,
-            rect: self.metrics.glyph_rect(char),
-        };
+        // On the first iteration, this will just move by 0.
+        self.top_left
+            .offset_mut(self.last_char.width + self.last_char.kerning.get(char), 0);
 
-        if let Some(old_src) = self.last_char.replace(src) {
-            self.top_left.offset_mut(
-                old_src.rect.size.w + self.metrics.kerning.spacing(old_src.char, char),
-                0,
-            );
-        }
+        let src_rect = self.metrics.glyph_rect(char);
+        self.last_char.width = src_rect.size.w;
+        self.last_char.kerning = self.metrics.kerning.for_left(char);
 
         let dst = Rect {
             top_left: self.top_left,
-            ..src.rect
+            ..src_rect
         };
-        Glyph { src: src.rect, dst }
+        Glyph { src: src_rect, dst }
     }
 }
