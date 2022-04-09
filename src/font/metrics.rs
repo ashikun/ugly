@@ -168,16 +168,23 @@ impl Metrics {
             .as_ref()
             .chars()
             .scan(init, move |(last_char, top_left), char| {
-                if let Some(c) = last_char.replace(char) {
-                    top_left.offset_mut(self.span_w_char(c) + self.kerning.spacing(c, char), 0);
+                let src = GlyphSrc {
+                    char,
+                    rect: self.glyph_rect(char),
+                };
+
+                if let Some(old_src) = last_char.replace(src) {
+                    top_left.offset_mut(
+                        old_src.rect.size.w + self.kerning.spacing(old_src.char, char),
+                        0,
+                    );
                 }
 
-                let src = self.glyph_rect(char);
                 let dst = Rect {
                     top_left: *top_left,
-                    ..src
+                    ..src.rect
                 };
-                Some(Glyph { src, dst })
+                Some(Glyph { src: src.rect, dst })
             })
     }
 
@@ -215,10 +222,19 @@ fn glyph_axis(index: u8, size: Length) -> Length {
     Length::from(index) * size
 }
 
+/// A representation of a glyph and where to find it in the texture.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GlyphSrc {
+    /// The character to be rendered.
+    pub char: char,
+    /// The glyph's location inside the texture map.
+    pub rect: Rect,
+}
+
 /// A representation of a glyph to be rendered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Glyph {
-    /// The glyph's location inside the texture map.
+    /// The glyph's source rectangle.
     pub src: Rect,
     /// Where to render the glyph.
     pub dst: Rect,
