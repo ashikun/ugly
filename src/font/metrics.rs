@@ -1,6 +1,7 @@
 //! Font metrics.
 
 pub mod kerning;
+mod layout_iter;
 pub mod width;
 
 use std::collections::HashMap;
@@ -163,29 +164,7 @@ impl Metrics {
         start: Point,
         string: &'a S,
     ) -> impl Iterator<Item = Glyph> + 'a {
-        let init = (None, start);
-        string
-            .as_ref()
-            .chars()
-            .scan(init, move |(last_char, top_left), char| {
-                let src = GlyphSrc {
-                    char,
-                    rect: self.glyph_rect(char),
-                };
-
-                if let Some(old_src) = last_char.replace(src) {
-                    top_left.offset_mut(
-                        old_src.rect.size.w + self.kerning.spacing(old_src.char, char),
-                        0,
-                    );
-                }
-
-                let dst = Rect {
-                    top_left: *top_left,
-                    ..src.rect
-                };
-                Some(Glyph { src: src.rect, dst })
-            })
+        layout_iter::LayoutIter::new(self, start, string)
     }
 
     /// Bounding box for a glyph in the texture.
@@ -220,15 +199,6 @@ impl Metrics {
 fn glyph_axis(index: u8, size: Length) -> Length {
     // Can't multiply _then_ convert, because of overflow on big fonts.
     Length::from(index) * size
-}
-
-/// A representation of a glyph and where to find it in the texture.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct GlyphSrc {
-    /// The character to be rendered.
-    pub char: char,
-    /// The glyph's location inside the texture map.
-    pub rect: Rect,
 }
 
 /// A representation of a glyph to be rendered.
