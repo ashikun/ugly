@@ -4,37 +4,47 @@ use std::cell::RefMut;
 
 use sdl2::render::{Canvas, RenderTarget};
 
+use crate::resource::Map;
 use crate::{
     colour,
     error::{Error, Result},
-    font, metrics, render,
+    font, metrics, render, resource,
 };
 
 /// The SDL window graphics renderer.
 ///
-/// As usual, the renderer is parameterised over the IDs for fonts (`FId`), foreground colours
+/// As usual, the renderer is parameterised over maps for font metrics (`FMet`), foreground colours
 /// (`Fg`), and background colours (`Bg`).  Its lifetime `a` represents the parent resource manager.
 /// `Tgt` represents a rendering context.
-pub struct Renderer<'a, FId, Fg, Bg, Tgt: RenderTarget> {
+pub struct Renderer<'a, Font, Fg, Bg, Tgt>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Tgt: RenderTarget,
+{
     /// The target screen canvas.
     canvas: RefMut<'a, Canvas<Tgt>>,
     /// The font manager.
-    font_manager: super::font::Manager<'a, FId, Fg, Tgt::Context>,
+    font_manager: super::font::Manager<'a, Font, Fg, Tgt::Context>,
     /// The colour set.
     colour_set: &'a colour::MapSet<Fg, Bg>,
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarget>
-    render::Renderer<FId, Fg, Bg> for Renderer<'a, FId, Fg, Bg, Tgt>
+impl<'a, Font, Fg, Bg, Tgt> render::Renderer<Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg, Tgt>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
+    Tgt: RenderTarget,
 {
     fn write(
         &mut self,
         mut pos: metrics::Point,
-        font: font::Spec<FId, Fg>,
+        font: font::Spec<Font::Id, Fg::Id>,
         s: &str,
     ) -> Result<metrics::Point> {
         let texture = self.font_manager.texture(font)?;
-        let metrics = self.font_manager.metrics_for(font.id)?;
+        let metrics = self.font_manager.metrics_set.get(font.id);
 
         for glyph in metrics.layout_str(pos, s) {
             let src = super::metrics::convert_rect(&glyph.src);
@@ -53,14 +63,14 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
         Ok(pos)
     }
 
-    fn fill(&mut self, rect: metrics::Rect, colour: Bg) -> Result<()> {
+    fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> Result<()> {
         let rect = super::metrics::convert_rect(&rect);
         self.set_screen_bg(colour);
         self.canvas.fill_rect(rect).map_err(Error::Backend)
     }
 
     /// Clears the screen.
-    fn clear(&mut self, colour: Bg) -> Result<()> {
+    fn clear(&mut self, colour: Bg::Id) -> Result<()> {
         self.set_screen_bg(colour);
         self.canvas.clear();
         Ok(())
@@ -71,23 +81,22 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
         self.canvas.present();
     }
 
-    fn font_metrics(&self) -> &font::metrics::Map<FId> {
+    fn font_metrics(&self) -> &Font::MetricsMap {
         &self.font_manager.metrics_set
-    }
-
-    fn font_metrics_for(&self, id: FId) -> Result<&font::Metrics> {
-        self.font_manager.metrics_for(id)
     }
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarget>
-    Renderer<'a, FId, Fg, Bg, Tgt>
+impl<'a, Font, Fg, Bg, Tgt: RenderTarget> Renderer<'a, Font, Fg, Bg, Tgt>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
 {
     /// Constructs a [Renderer] using the given screen, font manager, and colour set.
     #[must_use]
     pub fn new(
         canvas: RefMut<'a, Canvas<Tgt>>,
-        font_manager: super::font::Manager<'a, FId, Fg, Tgt::Context>,
+        font_manager: super::font::Manager<'a, Font, Fg, Tgt::Context>,
         colour_set: &'a colour::MapSet<Fg, Bg>,
     ) -> Self {
         Self {
@@ -98,7 +107,7 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: RenderTarge
     }
 
     // Sets the screen draw colour to `bg`.
-    fn set_screen_bg(&mut self, bg: Bg) {
+    fn set_screen_bg(&mut self, bg: Bg::Id) {
         self.canvas
             .set_draw_color(colour_to_sdl(self.colour_set.bg_or_black(bg)));
     }

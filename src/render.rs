@@ -1,12 +1,17 @@
 //! Traits for low-level rendering.
 
-use super::{error, font, metrics};
+use super::{colour, error, font, metrics, resource};
 
 /// Trait of things that provide rendering facilities.
 ///
-/// The trait is parameterised by the specific IDs used to look up font, foreground, and background
-/// colours in the application.
-pub trait Renderer<FId, Fg, Bg> {
+/// The trait is parameterised by the specific maps used to look up font metrics and colours
+/// in the application.  Background colours may resolve to `None` (transparency).
+pub trait Renderer<
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
+>
+{
     /// Writes the string `s` at position `pos` with the font `font`.
     ///
     /// Returns the position that the next character would be written to, if we continued writing.
@@ -17,7 +22,7 @@ pub trait Renderer<FId, Fg, Bg> {
     fn write(
         &mut self,
         pos: metrics::Point,
-        font: font::Spec<FId, Fg>,
+        font: font::Spec<Font::Id, Fg::Id>,
         s: &str,
     ) -> error::Result<metrics::Point>;
 
@@ -27,7 +32,7 @@ pub trait Renderer<FId, Fg, Bg> {
     /// # Errors
     ///
     /// Returns an error if the renderer fails to blit the rect onto the screen.
-    fn fill(&mut self, rect: metrics::Rect, colour: Bg) -> error::Result<()>;
+    fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> error::Result<()>;
 
     // TODO(@MattWindsor91): replace these with RAII
 
@@ -36,20 +41,11 @@ pub trait Renderer<FId, Fg, Bg> {
     /// # Errors
     ///
     /// Returns an error if the renderer fails to clear the screen.
-    fn clear(&mut self, colour: Bg) -> error::Result<()>;
+    fn clear(&mut self, colour: Bg::Id) -> error::Result<()>;
 
     /// Refreshes the screen.
     fn present(&mut self);
 
-    // TODO(@MattWindsor91): make the below obsolete?
-
-    /// Borrows the font metrics map.
-    fn font_metrics(&self) -> &font::metrics::Map<FId>;
-
-    /// Borrows font metrics for the given font.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the font is missing in the metrics map.
-    fn font_metrics_for(&self, id: FId) -> error::Result<&font::Metrics>;
+    /// Borrows the font metrics map being used by this renderer.
+    fn font_metrics(&self) -> &Font::MetricsMap;
 }

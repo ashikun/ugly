@@ -5,8 +5,9 @@
 //! things like EGA colours more directly.
 
 pub mod definition;
+pub mod ega;
 pub mod error;
-pub mod id;
 
-pub use definition::{Definition, Map, MapSet};
+pub use definition::{Definition, MapSet};
+pub use ega::Ega;
 pub use error::{Error, Result};

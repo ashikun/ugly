@@ -1,12 +1,15 @@
 //! Colour definitions.
 
-use std::collections::HashMap;
 use std::{fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 
-use super::error::{Error, Result};
+use super::{
+    super::resource,
+    ega::EGA,
+    error::{Error, Result},
+};
 
 /// A true-colour definition.
 #[derive(Copy, Clone, Debug, DeserializeFromStr, SerializeDisplay)]
@@ -68,106 +71,19 @@ impl Definition {
     }
 }
 
-/// EGA base palette without intensity.
-pub struct EgaBase {
-    pub black: Definition,
-    pub blue: Definition,
-    pub green: Definition,
-    pub cyan: Definition,
-    pub red: Definition,
-    pub magenta: Definition,
-    pub yellow: Definition,
-    pub white: Definition,
-}
-
-/// EGA palette with intensity.
-pub struct Ega {
-    pub dark: EgaBase,
-    pub bright: EgaBase,
-}
-
-/// The default EGA palette.
-pub const EGA: Ega = Ega {
-    dark: EgaBase {
-        black: Definition::rgb(0x00, 0x00, 0x00),
-        blue: Definition::rgb(0x00, 0x00, 0xAA),
-        green: Definition::rgb(0x00, 0xAA, 0x00),
-        cyan: Definition::rgb(0x00, 0xAA, 0xAA),
-        red: Definition::rgb(0xAA, 0x00, 0x00),
-        magenta: Definition::rgb(0xAA, 0x00, 0xAA),
-        yellow: Definition::rgb(0xAA, 0x55, 0x00),
-        white: Definition::rgb(0xAA, 0xAA, 0xAA),
-    },
-    bright: EgaBase {
-        black: Definition::rgb(0x55, 0x55, 0x55),
-        blue: Definition::rgb(0x55, 0x55, 0xFF),
-        green: Definition::rgb(0x55, 0xFF, 0x55),
-        cyan: Definition::rgb(0x55, 0xFF, 0xFF),
-        red: Definition::rgb(0xFF, 0x55, 0x55),
-        magenta: Definition::rgb(0xFF, 0x55, 0xFF),
-        yellow: Definition::rgb(0xFF, 0xFF, 0x55),
-        white: Definition::rgb(0xFF, 0xFF, 0xFF),
-    },
-};
-
-/// Shorthand for hash-maps containing definitions.
-pub type Map<Id> = HashMap<Id, Definition>;
-
 /// Pair of foreground and background colour maps.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapSet<Fg, Bg> {
     /// Foreground colour space.
-    #[serde(bound(
-        serialize = "Fg: super::id::Fg + Serialize",
-        deserialize = "Fg: super::id::Fg + Deserialize<'de>"
-    ))]
-    pub fg: Map<Fg>,
+    pub fg: Fg,
     /// Background colour space.
-    #[serde(bound(
-        serialize = "Bg: super::id::Bg + Serialize",
-        deserialize = "Bg: super::id::Bg + Deserialize<'de>"
-    ))]
-    pub bg: Map<Bg>,
+    pub bg: Bg,
 }
 
-/// The default map set contains no mappings for either foreground or background.
-/// We can't automatically derive it because it would put undue restrictions on Fg/Bg.
-impl<Fg, Bg> Default for MapSet<Fg, Bg> {
-    fn default() -> Self {
-        Self {
-            fg: Map::default(),
-            bg: Map::default(),
-        }
-    }
-}
-
-impl<Fg: super::id::Fg, Bg: super::id::Bg> MapSet<Fg, Bg> {
-    /// Gets the foreground at `id`, substituting white if `id` is not in the map.
-    #[must_use]
-    pub fn fg_or_white(&self, id: Fg) -> Definition {
-        fg_or_white(&self.fg, id)
-    }
-
+impl<Fg: resource::Map<Definition>, Bg: resource::Map<Option<Definition>>> MapSet<Fg, Bg> {
     /// Gets the background at `id`, substituting black if `id` is not in the map.
     #[must_use]
-    pub fn bg_or_black(&self, id: Bg) -> Definition {
-        self.bg
-            .get(&id)
-            .copied()
-            .unwrap_or(super::definition::EGA.dark.black)
+    pub fn bg_or_black(&self, id: Bg::Id) -> Definition {
+        self.bg.get(id).unwrap_or(EGA.dark.black)
     }
-
-    /// Merges the definitions into `other` into this map-set.
-    pub fn merge(&mut self, other: &Self) {
-        self.fg.extend(other.fg.iter());
-        self.bg.extend(other.bg.iter());
-    }
-}
-
-/// Gets the foreground at `id`, substituting white if `id` is not in the map.
-#[must_use]
-pub fn fg_or_white<Fg: super::id::Fg>(map: &Map<Fg>, id: Fg) -> Definition {
-    map.get(&id)
-        .copied()
-        .unwrap_or(super::definition::EGA.bright.white)
 }

@@ -1,5 +1,6 @@
 //! The font manager.
 
+use std::hash::Hash;
 use std::{collections::HashMap, rc::Rc};
 
 use sdl2::{
@@ -7,32 +8,42 @@ use sdl2::{
     render::{Texture, TextureCreator},
 };
 
-use crate::{colour, error::Result, font};
+use crate::{colour, error::Result, font, resource};
 
 /// A font manager, using a SDL texture creator.
 ///
 /// The lifeline `a` corresponds to the lifeline of the main resource manager.
-pub struct Manager<'a, FId, Fg, Ctx> {
+pub struct Manager<'a, Font, Fg, Ctx>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+{
     /// The texture creator used to load fonts.
     creator: &'a TextureCreator<Ctx>,
     /// The map of current font textures.
-    textures: HashMap<font::Spec<FId, Fg>, Rc<Texture<'a>>>,
+    textures: HashMap<font::Spec<Font::Id, Fg::Id>, Rc<Texture<'a>>>,
     /// The font path set.
-    font_set: &'a font::Map<FId>,
+    font_set: &'a Font,
     /// The font metrics set.
-    pub metrics_set: font::metrics::Map<FId>,
+    pub metrics_set: Font::MetricsMap,
     /// The foreground colour set, used for setting up font colours.
-    colour_set: &'a colour::Map<Fg>,
+    colour_set: &'a Fg,
 }
 
-impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
+impl<'a, Font, Fg, Ctx> Manager<'a, Font, Fg, Ctx>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Font::Id: Eq + Hash,
+    Fg::Id: Eq + Hash,
+{
     /// Creates a font manager with the given texture creator and config maps.
     #[must_use]
     pub fn new(
         creator: &'a TextureCreator<Ctx>,
-        font_set: &'a font::Map<FId>,
-        metrics_set: font::metrics::Map<FId>,
-        colour_set: &'a colour::Map<Fg>,
+        font_set: &'a Font,
+        metrics_set: Font::MetricsMap,
+        colour_set: &'a Fg,
     ) -> Self {
         Self {
             creator,
@@ -50,37 +61,22 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
     ///
     /// Returns an error if we need to load the font but SDL cannot for some
     /// reason, or the font is not configured.
-    pub fn texture(&mut self, spec: font::Spec<FId, Fg>) -> Result<Rc<Texture<'a>>> {
+    pub fn texture(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Rc<Texture<'a>>> {
         self.textures
             .get(&spec)
             .cloned()
             .map_or_else(|| self.cache(spec), Ok)
     }
 
-    /// Borrows font metrics for `id` from the font manager.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the font does not exist in the font map.
-    pub fn metrics_for(&self, id: FId) -> Result<&font::Metrics> {
-        self.metrics_set
-            .get(&id)
-            .ok_or_else(|| crate::Error::Font(font::Error::unknown_font(id)))
-    }
-
-    fn cache(&mut self, spec: font::Spec<FId, Fg>) -> Result<Rc<Texture<'a>>> {
+    fn cache(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Rc<Texture<'a>>> {
         let tex = Rc::new(self.load(spec)?);
         self.textures.insert(spec, tex.clone());
         Ok(tex)
     }
 
-    fn load(&mut self, spec: font::Spec<FId, Fg>) -> Result<Texture<'a>> {
+    fn load(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Texture<'a>> {
         let id = spec.id;
-        let path = &self
-            .font_set
-            .get(&id)
-            .ok_or_else(|| font::Error::TextureLoad(format!("Missing texture file: {id:?}")))?
-            .texture_path();
+        let path = &self.font_set.get(id).texture_path();
         let mut tex = self
             .creator
             .load_texture(path)
@@ -89,8 +85,8 @@ impl<'a, FId: font::Id, Fg: colour::id::Fg, Ctx> Manager<'a, FId, Fg, Ctx> {
         Ok(tex)
     }
 
-    fn colourise(&self, texture: &mut Texture, colour: Fg) {
-        let colour = colour::definition::fg_or_white(self.colour_set, colour);
+    fn colourise(&self, texture: &mut Texture, colour: Fg::Id) {
+        let colour = self.colour_set.get(colour);
         texture.set_color_mod(colour.red_byte(), colour.green_byte(), colour.blue_byte());
         texture.set_alpha_mod(colour.alpha_byte());
     }

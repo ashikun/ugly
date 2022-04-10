@@ -4,7 +4,7 @@ use std::cell::RefCell;
 
 use sdl2::render::{Canvas, RenderTarget, TextureCreator};
 
-use crate::{colour, font, Error, Result};
+use crate::{colour, font, resource, Error, Result};
 
 /// Manages top-level SDL resources.
 ///
@@ -14,26 +14,25 @@ use crate::{colour, font, Error, Result};
 /// `c` is the lifetime of the configuration used by the manager.
 ///
 /// `Tgt` is the type of the underlying render target (window or screen).
-pub struct Manager<'c, FId, Fg, Bg, Tgt: Target> {
+pub struct Manager<'c, Font, Fg, Bg, Tgt: Target> {
     canvas: RefCell<sdl2::render::Canvas<Tgt>>,
     textures: sdl2::render::TextureCreator<Tgt::Context>,
-    fonts: &'c font::Map<FId>,
+    fonts: &'c Font,
     colours: &'c colour::MapSet<Fg, Bg>,
 }
 
-impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: Target>
-    Manager<'c, FId, Fg, Bg, Tgt>
+impl<'c, Font, Fg, Bg, Tgt: Target> Manager<'c, Font, Fg, Bg, Tgt>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
 {
     /// Creates a new rendering manager over a given rendering target.
     ///
     /// # Errors
     ///
     /// Fails if we can't construct the requisite canvas for the target.  
-    pub fn new(
-        target: Tgt,
-        fonts: &'c font::Map<FId>,
-        colours: &'c colour::MapSet<Fg, Bg>,
-    ) -> Result<Self> {
+    pub fn new(target: Tgt, fonts: &'c Font, colours: &'c colour::MapSet<Fg, Bg>) -> Result<Self> {
         let canvas = target.into_canvas()?;
         let textures = Tgt::texture_creator(&canvas);
         Ok(Self {
@@ -49,8 +48,8 @@ impl<'c, FId: font::Id, Fg: colour::id::Fg, Bg: colour::id::Bg, Tgt: Target>
     /// # Errors
     ///
     /// Fails if we can't set up the font metrics map.
-    pub fn renderer(&self) -> Result<super::render::Renderer<FId, Fg, Bg, Tgt>> {
-        let metrics = font::metrics::load_map(self.fonts)?;
+    pub fn renderer(&self) -> Result<super::render::Renderer<Font, Fg, Bg, Tgt>> {
+        let metrics = self.fonts.load_metrics()?;
         let font_manager =
             super::font::Manager::new(&self.textures, self.fonts, metrics, &self.colours.fg);
         Ok(super::render::Renderer::new(

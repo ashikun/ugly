@@ -4,11 +4,11 @@ pub mod error;
 pub mod metrics;
 pub mod spec;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 pub use error::{Error, Result};
 pub use metrics::Metrics;
-pub use spec::{Id, Spec};
+pub use spec::Spec;
 
 /// A font.
 ///
@@ -53,8 +53,35 @@ impl Font {
     }
 }
 
-/// Shorthand for font maps.
-pub type Map<FId> = HashMap<FId, Font>;
+/// Trait for font resource maps.
+pub trait Map: super::resource::Map<Font> {
+    /// The type of metrics maps produced by following this map.
+    type MetricsMap: super::resource::Map<Metrics, Id = Self::Id>;
+
+    /// Loads metrics for all fonts in the map.
+    ///
+    /// # Errors
+    ///
+    /// Fails if any of the font metrics files is missing.
+    fn load_metrics(&self) -> Result<Self::MetricsMap>;
+}
+
+impl<K: Copy + Clone + Default + std::hash::Hash + Eq> Map
+    for super::resource::DefaultingHashMap<K, Font>
+{
+    type MetricsMap = super::resource::DefaultingHashMap<K, Metrics>;
+
+    fn load_metrics(&self) -> Result<Self::MetricsMap> {
+        let map = self
+            .iter()
+            .map(|(k, v)| Ok((*k, v.metrics()?)))
+            .collect::<Result<std::collections::HashMap<_, _>>>()?;
+        Ok(super::resource::DefaultingHashMap::new(
+            map,
+            Metrics::default(),
+        ))
+    }
+}
 
 /// The metrics filename.
 const METRICS_FILE: &str = "metrics.ron";

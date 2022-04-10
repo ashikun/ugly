@@ -11,6 +11,7 @@ pub mod error;
 pub mod font;
 pub mod metrics;
 pub mod render;
+pub mod resource;
 pub mod text;
 
 // Generally, we re-export anything where the name would stutter; these tend to be the most

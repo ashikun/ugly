@@ -4,16 +4,11 @@ pub mod kerning;
 mod layout_iter;
 pub mod width;
 
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    font,
-    metrics::{
-        anchor::{self, Anchor},
-        Length, Point, Rect, Size,
-    },
+use crate::metrics::{
+    anchor::{self, Anchor},
+    Length, Point, Rect, Size,
 };
 
 // We hardcode the general layout of a font texture using the following
@@ -220,18 +215,6 @@ pub fn glyph_col(char: u8) -> u8 {
 #[must_use]
 pub fn glyph_row(char: u8) -> u8 {
     char / NUM_COLS
-}
-
-/// Shorthand for a hashmap of metrics.
-pub type Map<FId> = HashMap<FId, Metrics>;
-
-/// Loads a map of metrics from a map of paths.
-///
-/// # Errors
-///
-/// Fails if a metrics file isn't present, or is malformed, et cetera.
-pub fn load_map<FId: super::Id>(paths: &font::Map<FId>) -> super::Result<Map<FId>> {
-    paths.iter().map(|(k, v)| Ok((*k, v.metrics()?))).collect()
 }
 
 #[cfg(test)]

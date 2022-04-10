@@ -2,10 +2,13 @@
 
 use std::marker;
 
-use crate::{colour, error, font, metrics, render};
+use crate::{
+    colour, error, font, metrics, render,
+    resource::{self, Map},
+};
 
 /// Helper for positioned writing of strings.
-pub struct Writer<'r, FId, Fg, Bg, R> {
+pub struct Writer<'r, Font: font::Map, Fg: resource::Map<colour::Definition>, Bg, R> {
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -13,7 +16,7 @@ pub struct Writer<'r, FId, Fg, Bg, R> {
     alignment: metrics::anchor::X,
 
     /// The specification of the font being used for writing.
-    font_spec: font::Spec<FId, Fg>,
+    font_spec: font::Spec<Font::Id, Fg::Id>,
 
     /// Reference to the renderer being borrowed to do the rendering.
     renderer: &'r mut R,
@@ -21,8 +24,11 @@ pub struct Writer<'r, FId, Fg, Bg, R> {
     bg_phantom: marker::PhantomData<Bg>,
 }
 
-impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
-    Writer<'r, FId, Fg, Bg, R>
+impl<'r, Font, Fg, Bg, R: render::Renderer<Font, Fg, Bg>> Writer<'r, Font, Fg, Bg, R>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
 {
     /// Constructs a writer on `renderer`, using the font spec `font_spec`.
     ///
@@ -39,21 +45,21 @@ impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
 
     /// Changes the writer to use font `font_spec`.
     #[must_use]
-    pub fn with_font(self, font_spec: font::Spec<FId, Fg>) -> Self {
+    pub fn with_font(self, font_spec: font::Spec<Font::Id, Fg::Id>) -> Self {
         let font::Spec { id, colour } = font_spec;
         self.with_font_id(id).with_colour(colour)
     }
 
     /// Changes the writer to use font ID `id`.
     #[must_use]
-    pub fn with_font_id(mut self, id: FId) -> Self {
+    pub fn with_font_id(mut self, id: Font::Id) -> Self {
         self.font_spec.id = id;
         self
     }
 
     /// Changes the writer to use foreground colour `fg`.
     #[must_use]
-    pub fn with_colour(mut self, fg: Fg) -> Self {
+    pub fn with_colour(mut self, fg: Fg::Id) -> Self {
         // No need to recalculate the font metrics if we're just changing the colour
         self.font_spec.colour = fg;
         self
@@ -73,31 +79,34 @@ impl<'r, FId: font::spec::Id, Fg: Default, Bg, R: render::Renderer<FId, Fg, Bg>>
         self
     }
 
-    fn string_top_left(&self, s: &str) -> error::Result<metrics::Point> {
-        self.renderer
-            .font_metrics_for(self.font_spec.id)
-            .map(|m| self.pos.offset(-m.x_anchor_of_str(s, self.alignment), 0))
+    fn string_top_left(&self, s: &str) -> metrics::Point {
+        let m = self.renderer.font_metrics().get(self.font_spec.id);
+        self.pos.offset(-m.x_anchor_of_str(s, self.alignment), 0)
     }
 }
 
 /// We can use a writer's underlying renderer through it.
-impl<'r, FId, Fg, Bg, R: render::Renderer<FId, Fg, Bg>> render::Renderer<FId, Fg, Bg>
-    for Writer<'r, FId, Fg, Bg, R>
+impl<'r, Font, Fg, Bg, R> render::Renderer<Font, Fg, Bg> for Writer<'r, Font, Fg, Bg, R>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
+    R: render::Renderer<Font, Fg, Bg>,
 {
     fn write(
         &mut self,
         pos: metrics::Point,
-        font: font::Spec<FId, Fg>,
+        font: font::Spec<Font::Id, Fg::Id>,
         s: &str,
     ) -> error::Result<metrics::Point> {
         self.renderer.write(pos, font, s)
     }
 
-    fn fill(&mut self, rect: super::metrics::Rect, colour: Bg) -> error::Result<()> {
+    fn fill(&mut self, rect: super::metrics::Rect, colour: Bg::Id) -> error::Result<()> {
         self.renderer.fill(rect, colour)
     }
 
-    fn clear(&mut self, colour: Bg) -> error::Result<()> {
+    fn clear(&mut self, colour: Bg::Id) -> error::Result<()> {
         self.renderer.clear(colour)
     }
 
@@ -105,29 +114,23 @@ impl<'r, FId, Fg, Bg, R: render::Renderer<FId, Fg, Bg>> render::Renderer<FId, Fg
         self.renderer.present();
     }
 
-    fn font_metrics(&self) -> &font::metrics::Map<FId> {
+    fn font_metrics(&self) -> &Font::MetricsMap {
         self.renderer.font_metrics()
-    }
-
-    fn font_metrics_for(&self, font: FId) -> error::Result<&font::Metrics> {
-        self.renderer.font_metrics_for(font)
     }
 }
 
 /// We can use writers with Rust's formatting system.
-impl<
-        'r,
-        FId: font::Id,
-        Fg: colour::id::Fg,
-        Bg: colour::id::Bg,
-        R: render::Renderer<FId, Fg, Bg>,
-    > std::fmt::Write for Writer<'r, FId, Fg, Bg, R>
+impl<'r, Font, Fg, Bg, R> std::fmt::Write for Writer<'r, Font, Fg, Bg, R>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<Option<colour::Definition>>,
+    R: render::Renderer<Font, Fg, Bg>,
 {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        let pos = self.string_top_left(s).map_err(|_| std::fmt::Error)?;
         self.pos = self
             .renderer
-            .write(pos, self.font_spec, s)
+            .write(self.string_top_left(s), self.font_spec, s)
             .map_err(|_| std::fmt::Error)?;
 
         Ok(())
