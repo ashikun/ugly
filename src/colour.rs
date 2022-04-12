@@ -9,5 +9,5 @@ pub mod ega;
 pub mod error;
 
 pub use definition::{Definition, MapSet};
-pub use ega::Ega;
+pub use ega::{Ega, EGA};
 pub use error::{Error, Result};
