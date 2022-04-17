@@ -29,3 +29,35 @@ impl FromStr for Spec {
         Ok(Spec(s.parse()?))
     }
 }
+
+impl Spec {
+    /// Converts a [Spec] into a definition.
+    ///
+    /// This conversion is lossy in that it truncates floating-point alpha values into a single
+    /// integer byte.
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use ugly::colour::{Definition, Spec};
+    ///
+    /// let spec = Spec::from_str("transparent").unwrap();
+    ///
+    /// assert!(spec.into_definition().is_transparent());
+    /// ```
+    #[must_use]
+    pub fn into_definition(self) -> super::Definition {
+        super::Definition {
+            r: self.0.r,
+            g: self.0.g,
+            b: self.0.b,
+            a: convert_alpha(self.0.a),
+        }
+    }
+}
+
+/// Converts an alpha float (0.0..1.0) into an integer.
+#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+#[must_use]
+fn convert_alpha(a: f32) -> u8 {
+    (255.0 * a).round() as u8
+}
