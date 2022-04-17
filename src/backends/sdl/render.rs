@@ -27,7 +27,7 @@ where
     /// The font manager.
     font_manager: super::font::Manager<'a, Font, Fg, Tgt::Context>,
     /// The colour set.
-    colour_set: &'a colour::MapSet<Fg, Bg>,
+    colour_set: &'a colour::Palette<Fg, Bg>,
 }
 
 impl<'a, Font, Fg, Bg, Tgt> render::Renderer<Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg, Tgt>
@@ -97,7 +97,7 @@ where
     pub fn new(
         canvas: RefMut<'a, Canvas<Tgt>>,
         font_manager: super::font::Manager<'a, Font, Fg, Tgt::Context>,
-        colour_set: &'a colour::MapSet<Fg, Bg>,
+        colour_set: &'a colour::Palette<Fg, Bg>,
     ) -> Self {
         Self {
             canvas,

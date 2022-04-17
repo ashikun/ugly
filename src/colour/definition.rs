@@ -2,8 +2,6 @@
 
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
-
 /// A true-colour definition.
 ///
 /// The default colour is transparent black.
@@ -92,12 +90,3 @@ impl Definition {
 /// assert_eq!(definition::Definition::default(), col);
 /// ```
 pub const TRANSPARENT: Definition = Definition::rgba(0, 0, 0, 0);
-
-/// Pair of foreground and background colour maps.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MapSet<Fg, Bg> {
-    /// Foreground colour space.
-    pub fg: Fg,
-    /// Background colour space.
-    pub bg: Bg,
-}

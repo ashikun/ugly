@@ -18,7 +18,7 @@ pub struct Manager<'c, Font, Fg, Bg, Tgt: Target> {
     canvas: RefCell<sdl2::render::Canvas<Tgt>>,
     textures: sdl2::render::TextureCreator<Tgt::Context>,
     fonts: &'c Font,
-    colours: &'c colour::MapSet<Fg, Bg>,
+    colours: &'c colour::Palette<Fg, Bg>,
 }
 
 impl<'c, Font, Fg, Bg, Tgt: Target> Manager<'c, Font, Fg, Bg, Tgt>
@@ -32,7 +32,7 @@ where
     /// # Errors
     ///
     /// Fails if we can't construct the requisite canvas for the target.  
-    pub fn new(target: Tgt, fonts: &'c Font, colours: &'c colour::MapSet<Fg, Bg>) -> Result<Self> {
+    pub fn new(target: Tgt, fonts: &'c Font, colours: &'c colour::Palette<Fg, Bg>) -> Result<Self> {
         let canvas = target.into_canvas()?;
         let textures = Tgt::texture_creator(&canvas);
         Ok(Self {
