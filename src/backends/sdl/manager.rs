@@ -25,7 +25,7 @@ impl<'c, Font, Fg, Bg, Tgt: Target> Manager<'c, Font, Fg, Bg, Tgt>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
 {
     /// Creates a new rendering manager over a given rendering target.
     ///

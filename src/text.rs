@@ -28,7 +28,7 @@ impl<'r, Font, Fg, Bg, R: render::Renderer<Font, Fg, Bg>> Writer<'r, Font, Fg, B
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
 {
     /// Constructs a writer on `renderer`, using the font spec `font_spec`.
     ///
@@ -90,7 +90,7 @@ impl<'r, Font, Fg, Bg, R> render::Renderer<Font, Fg, Bg> for Writer<'r, Font, Fg
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
     R: render::Renderer<Font, Fg, Bg>,
 {
     fn write(
@@ -124,7 +124,7 @@ impl<'r, Font, Fg, Bg, R> std::fmt::Write for Writer<'r, Font, Fg, Bg, R>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
     R: render::Renderer<Font, Fg, Bg>,
 {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {

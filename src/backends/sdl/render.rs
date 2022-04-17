@@ -34,7 +34,7 @@ impl<'a, Font, Fg, Bg, Tgt> render::Renderer<Font, Fg, Bg> for Renderer<'a, Font
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
     Tgt: RenderTarget,
 {
     fn write(
@@ -90,7 +90,7 @@ impl<'a, Font, Fg, Bg, Tgt: RenderTarget> Renderer<'a, Font, Fg, Bg, Tgt>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
 {
     /// Constructs a [Renderer] using the given screen, font manager, and colour set.
     #[must_use]
@@ -109,7 +109,7 @@ where
     // Sets the screen draw colour to `bg`.
     fn set_screen_bg(&mut self, bg: Bg::Id) {
         self.canvas
-            .set_draw_color(colour_to_sdl(self.colour_set.bg_or_black(bg)));
+            .set_draw_color(colour_to_sdl(*self.colour_set.bg.get(bg)));
     }
 }
 

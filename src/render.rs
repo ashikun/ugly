@@ -9,7 +9,7 @@ use super::{colour, error, font, metrics, resource};
 pub trait Renderer<
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<Option<colour::Definition>>,
+    Bg: resource::Map<colour::Definition>,
 >
 {
     /// Writes the string `s` at position `pos` with the font `font`.
