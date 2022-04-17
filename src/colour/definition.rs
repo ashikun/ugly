@@ -65,38 +65,33 @@ impl Definition {
         Self::rgba(r, g, b, 255)
     }
 
-    /// Constructs a transparent black colour.
-    ///
-    /// This is effectively a `const` synonym for `default`.
-    ///
-    /// ```
-    /// use ugly::colour::Definition;
-    ///
-    /// let col = Definition::transparent();
-    /// assert_eq!(0, col.r);
-    /// assert_eq!(0, col.g);
-    /// assert_eq!(0, col.b);
-    /// assert_eq!(0, col.a);
-    ///
-    /// assert_eq!(Definition::default(), col);
-    /// ```
-    #[must_use]
-    pub const fn transparent() -> Self {
-        Self::rgba(0, 0, 0, 0)
-    }
-
     /// Gets whether this colour is transparent.
     ///
     /// ```
-    /// use ugly::colour::Definition;
-    ///
-    /// assert!(Definition::transparent().is_transparent());
+    /// assert!(ugly::colour::definition::TRANSPARENT.is_transparent());
     /// ```
     #[must_use]
     pub const fn is_transparent(&self) -> bool {
         self.a == 0
     }
 }
+
+/// A transparent black colour.
+///
+/// This is effectively a `const` synonym for `default`.
+///
+/// ```
+/// use ugly::colour::definition;
+///
+/// let col = definition::TRANSPARENT;
+/// assert_eq!(0, col.r);
+/// assert_eq!(0, col.g);
+/// assert_eq!(0, col.b);
+/// assert_eq!(0, col.a);
+///
+/// assert_eq!(definition::Definition::default(), col);
+/// ```
+pub const TRANSPARENT: Definition = Definition::rgba(0, 0, 0, 0);
 
 /// Pair of foreground and background colour maps.
 #[derive(Debug, Clone, Serialize, Deserialize)]
