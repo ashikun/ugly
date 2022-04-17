@@ -86,8 +86,8 @@ where
     }
 
     fn colourise(&self, texture: &mut Texture, colour: Fg::Id) {
-        let colour = self.colour_set.get(colour);
-        texture.set_color_mod(colour.red_byte(), colour.green_byte(), colour.blue_byte());
-        texture.set_alpha_mod(colour.alpha_byte());
+        let &colour::Definition { r, g, b, a } = self.colour_set.get(colour);
+        texture.set_color_mod(r, g, b);
+        texture.set_alpha_mod(a);
     }
 }

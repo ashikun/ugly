@@ -7,7 +7,9 @@
 pub mod definition;
 pub mod ega;
 pub mod error;
+pub mod spec;
 
 pub use definition::{Definition, MapSet};
 pub use ega::{Ega, EGA};
 pub use error::{Error, Result};
+pub use spec::Spec;

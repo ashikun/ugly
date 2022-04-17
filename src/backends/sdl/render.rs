@@ -115,5 +115,5 @@ where
 
 /// Converts an `ugly` colour to a SDL one.
 fn colour_to_sdl(c: colour::Definition) -> sdl2::pixels::Color {
-    sdl2::pixels::Color::RGBA(c.red_byte(), c.green_byte(), c.blue_byte(), c.alpha_byte())
+    sdl2::pixels::Color::RGBA(c.r, c.g, c.b, c.a)
 }

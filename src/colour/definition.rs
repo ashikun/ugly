@@ -1,50 +1,52 @@
 //! Colour definitions.
 
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
-
-use super::error::{Error, Result};
 
 /// A true-colour definition.
-#[derive(Copy, Clone, Debug, DeserializeFromStr, SerializeDisplay)]
-pub struct Definition(css_color_parser::Color);
-
-impl Display for Definition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
+///
+/// The default colour is transparent black.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Definition {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
 }
 
-impl FromStr for Definition {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        Ok(Definition(s.parse()?))
+impl Display for Definition {
+    /// Formats a colour in #rrggbbaa format.
+    ///
+    /// ```
+    /// use ugly::colour;
+    ///
+    /// assert_eq!("#aa5500ff", colour::EGA.dark.yellow.to_string())
+    /// ```
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "#{:02x}{:02x}{:02x}{:02x}",
+            self.r, self.g, self.b, self.a
+        )
     }
 }
 
 impl Definition {
-    /// Constructs a colour using bytes for red, green, blue, and alpha components.
+    /// Convenience constructor for RGBA colours.
     ///
     /// ```
     /// use ugly::colour::Definition;
     ///
     /// let col = Definition::rgba(12, 34, 56, 127);
-    /// assert_eq!(12, col.red_byte());
-    /// assert_eq!(34, col.green_byte());
-    /// assert_eq!(56, col.blue_byte());
-    /// assert_eq!(127, col.alpha_byte());
+    /// assert_eq!(12, col.r);
+    /// assert_eq!(34, col.g);
+    /// assert_eq!(56, col.b);
+    /// assert_eq!(127, col.a);
     /// ```
     #[must_use]
-    pub fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self(css_color_parser::Color {
-            r,
-            g,
-            b,
-            a: f32::from(a) / 255.0,
-        })
+    pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
     }
 
     /// Constructs a colour using bytes for red, green, and blue components (and full alpha).
@@ -53,36 +55,34 @@ impl Definition {
     /// use ugly::colour::Definition;
     ///
     /// let col = Definition::rgb(12, 34, 56);
-    /// assert_eq!(12, col.red_byte());
-    /// assert_eq!(34, col.green_byte());
-    /// assert_eq!(56, col.blue_byte());
-    /// assert_eq!(255, col.alpha_byte());
+    /// assert_eq!(12, col.r);
+    /// assert_eq!(34, col.g);
+    /// assert_eq!(56, col.b);
+    /// assert_eq!(255, col.a);
     /// ```
     #[must_use]
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(css_color_parser::Color { r, g, b, a: 1.0 })
+        Self::rgba(r, g, b, 255)
     }
 
     /// Constructs a transparent black colour.
+    ///
+    /// This is effectively a `const` synonym for `default`.
     ///
     /// ```
     /// use ugly::colour::Definition;
     ///
     /// let col = Definition::transparent();
-    /// assert_eq!(0, col.red_byte());
-    /// assert_eq!(0, col.green_byte());
-    /// assert_eq!(0, col.blue_byte());
-    /// assert_eq!(0, col.alpha_byte());
+    /// assert_eq!(0, col.r);
+    /// assert_eq!(0, col.g);
+    /// assert_eq!(0, col.b);
+    /// assert_eq!(0, col.a);
+    ///
+    /// assert_eq!(Definition::default(), col);
     /// ```
     #[must_use]
     pub const fn transparent() -> Self {
-        // can't use rgba(), it's non-const
-        Self(css_color_parser::Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0.0,
-        })
+        Self::rgba(0, 0, 0, 0)
     }
 
     /// Gets whether this colour is transparent.
@@ -93,36 +93,8 @@ impl Definition {
     /// assert!(Definition::transparent().is_transparent());
     /// ```
     #[must_use]
-    pub fn is_transparent(&self) -> bool {
-        // can't be const because 'a' is a float
-        self.0.a == 0.0
-    }
-
-    /// Gets the red component of this colour as a byte.
-    #[must_use]
-    pub const fn red_byte(&self) -> u8 {
-        self.0.r
-    }
-
-    /// Gets the green component of this colour as a byte.
-    #[must_use]
-    pub const fn green_byte(&self) -> u8 {
-        self.0.g
-    }
-
-    /// Gets the blue component of this colour as a byte.
-    #[must_use]
-    pub const fn blue_byte(&self) -> u8 {
-        self.0.b
-    }
-
-    /// Gets the alpha component of this colour as a byte.
-    ///
-    /// Note that the internal storage of the
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-    #[must_use]
-    pub fn alpha_byte(&self) -> u8 {
-        (255.0 * self.0.a).round() as u8
+    pub const fn is_transparent(&self) -> bool {
+        self.a == 0
     }
 }
 
