@@ -1,9 +1,9 @@
 //! Font metrics.
 
 pub mod kerning;
-mod layout_iter;
 pub mod width;
 
+use crate::font::layout;
 use serde::{Deserialize, Serialize};
 
 use crate::metrics::{
@@ -109,7 +109,8 @@ impl Metrics {
     #[must_use]
     pub fn span_w_str(&self, str: &str) -> Length {
         // Pretend to lay out the string, then work out where the last character went.
-        self.layout_str(Point::default(), str)
+        layout::String::layout(self, str, Point::default())
+            .glyphs
             .last()
             .map_or(0, |glyph| {
                 glyph.dst.x(0, super::super::metrics::anchor::X::Right)
@@ -153,18 +154,9 @@ impl Metrics {
         }
     }
 
-    /// Calculates layout for a byte-string as a series of [Glyph]s.
-    pub fn layout_str<'a, S: AsRef<str> + ?Sized>(
-        &'a self,
-        start: Point,
-        string: &'a S,
-    ) -> impl Iterator<Item = Glyph> + 'a {
-        layout_iter::LayoutIter::new(self, start, string)
-    }
-
     /// Bounding box for a glyph in the texture.
     #[must_use]
-    fn glyph_rect(&self, char: char) -> Rect {
+    pub fn glyph_rect(&self, char: char) -> Rect {
         self.glyph_top_left(char)
             .to_rect(self.glyph_size(char), Anchor::TOP_LEFT)
     }
@@ -194,15 +186,6 @@ impl Metrics {
 fn glyph_axis(index: u8, size: Length) -> Length {
     // Can't multiply _then_ convert, because of overflow on big fonts.
     Length::from(index) * size
-}
-
-/// A representation of a glyph to be rendered.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Glyph {
-    /// The glyph's source rectangle.
-    pub src: Rect,
-    /// Where to render the glyph.
-    pub dst: Rect,
 }
 
 /// The column of a glyph in the font.

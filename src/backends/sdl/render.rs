@@ -46,7 +46,7 @@ where
         let texture = self.font_manager.texture(font)?;
         let metrics = self.font_manager.metrics_set.get(font.id);
 
-        for glyph in metrics.layout_str(pos, s) {
+        for glyph in crate::font::layout::String::layout(metrics, s, pos).glyphs {
             let src = super::metrics::convert_rect(&glyph.src);
             let dst = super::metrics::convert_rect(&glyph.dst);
 

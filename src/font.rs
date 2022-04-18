@@ -1,6 +1,7 @@
 //! Fonts, their metrics, and ways of loading and referring to them.
 
 pub mod error;
+pub mod layout;
 pub mod metrics;
 pub mod spec;
 
