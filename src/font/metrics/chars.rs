@@ -22,7 +22,7 @@ impl Index<char> for Table {
     type Output = Entry;
 
     fn index(&self, index: char) -> &Self::Output {
-        self.entries.get(&index).unwrap_or(&self.default)
+        self.entries.get(index).unwrap_or(&self.default)
     }
 }
 
@@ -58,23 +58,18 @@ impl Table {
 
 fn add_kerning(table: &mut Subtable<Entry>, kerning: kerning::Map, default: &Entry) {
     for (char, kern) in kerning {
-        if let Some(entry) = table.get_mut(&char) {
-            entry.rights = Some(kern);
+        let rights = Some(kern.into_iter().collect());
+        if let Some(entry) = table.get_mut(char) {
+            entry.rights = rights;
         } else {
-            table.insert(
-                char,
-                Entry {
-                    rights: Some(kern),
-                    ..*default
-                },
-            );
+            table.insert(char, Entry { rights, ..*default });
         }
     }
 }
 
 fn add_width(table: &mut Subtable<Entry>, width: width::Map, default: &Entry) {
     for (char, width) in width {
-        if let Some(entry) = table.get_mut(&char) {
+        if let Some(entry) = table.get_mut(char) {
             entry.width = width;
         } else {
             table.insert(
@@ -91,8 +86,87 @@ fn add_width(table: &mut Subtable<Entry>, width: width::Map, default: &Entry) {
 
 /// Type of character tables.
 ///
-/// The exact type here is subject to change.
-type Subtable<T> = BTreeMap<char, T>;
+/// This table is optimised for speed in looking up ASCII values
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Subtable<T> {
+    /// Array of ASCII character values.
+    ascii: [Option<Box<T>>; 128],
+    /// Map of non-ASCII character values.
+    non_ascii: BTreeMap<char, T>,
+}
+
+impl<T> Subtable<T> {
+    #[must_use]
+    pub fn new() -> Self {
+        // https://www.joshmcguigan.com/blog/array-initialization-rust/
+        let mut uninit: [std::mem::MaybeUninit<Option<Box<T>>>; 128] =
+            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        for elem in &mut uninit {
+            unsafe {
+                std::ptr::write(elem.as_mut_ptr(), None);
+            }
+        }
+        let ascii = unsafe { std::mem::transmute(uninit) };
+
+        Self {
+            ascii,
+            non_ascii: BTreeMap::new(),
+        }
+    }
+
+    /// Inserts value `val` into character `key`.
+    pub fn insert(&mut self, key: char, val: T) {
+        if let Some(x) = as_ascii(key) {
+            self.ascii[x] = Some(Box::new(val));
+        } else {
+            self.non_ascii.insert(key, val);
+        }
+    }
+
+    /// Gets the value for character `key`.
+    #[must_use]
+    pub fn get(&self, key: char) -> Option<&T> {
+        if let Some(x) = as_ascii(key) {
+            self.ascii[x].as_deref()
+        } else {
+            self.non_ascii.get(&key)
+        }
+    }
+
+    /// Gets a mutable reference to the value for character `key`.
+    #[must_use]
+    pub fn get_mut(&mut self, key: char) -> Option<&mut T> {
+        if let Some(x) = as_ascii(key) {
+            self.ascii[x].as_deref_mut()
+        } else {
+            self.non_ascii.get_mut(&key)
+        }
+    }
+}
+
+impl<T: Default> Default for Subtable<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn as_ascii(key: char) -> Option<usize> {
+    key.is_ascii().then(|| {
+        let mut b = [0; 1];
+        key.encode_utf8(&mut b);
+        usize::from(b[0])
+    })
+}
+
+impl<T> FromIterator<(char, T)> for Subtable<T> {
+    fn from_iter<I: IntoIterator<Item = (char, T)>>(iter: I) -> Self {
+        let mut stab = Subtable::new();
+        for (k, v) in iter {
+            stab.insert(k, v);
+        }
+        stab
+    }
+}
 
 /// A character left-table.
 ///
@@ -124,7 +198,30 @@ impl Entry {
     pub fn kerning(&self, right: char) -> Length {
         self.rights
             .as_ref()
-            .and_then(|r| r.get(&right).copied())
+            .and_then(|r| r.get(right).copied())
             .unwrap_or(self.default_kerning)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn subtable_get_ascii() {
+        let mut t = Subtable::new();
+        t.insert('a', 12);
+        t.insert('b', 39);
+        assert_eq!(Some(&12), t.get('a'));
+        assert_eq!(Some(&39), t.get('b'));
+    }
+
+    #[test]
+    fn subtable_get_non_ascii() {
+        let mut t = Subtable::new();
+        t.insert('コ', 12);
+        t.insert('ヒ', 39);
+        assert_eq!(Some(&12), t.get('コ'));
+        assert_eq!(Some(&39), t.get('ヒ'));
     }
 }
