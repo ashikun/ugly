@@ -1,8 +1,8 @@
 //! Layout algorithm for strings.
 
 use super::{
-    super::metrics::{Length, Point, Rect},
-    metrics::kerning::LeftMap,
+    super::metrics::{Point, Rect},
+    metrics::chars::Entry,
     Metrics,
 };
 
@@ -28,15 +28,14 @@ impl<'str> String<'str> {
             glyphs: Vec::with_capacity(str.len()), // assuming best-case: ASCII
         };
 
-        let mut last_char = LastChar::default();
+        let mut last_char = &Entry::default();
 
         for char in str.chars() {
             // On the first iteration, this will just move by 0.
-            top_left.offset_mut(last_char.width + last_char.kerning.get(char), 0);
+            top_left.offset_mut(last_char.width + last_char.kerning(char), 0);
 
             let src_rect = metrics.glyph_rect(char);
-            last_char.width = src_rect.size.w;
-            last_char.kerning = metrics.kerning.for_left(char);
+            last_char = &metrics.chars[char];
 
             let dst = Rect {
                 top_left,
@@ -47,15 +46,6 @@ impl<'str> String<'str> {
 
         result
     }
-}
-
-/// A representation of a glyph and where to find it in the texture.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct LastChar<'met> {
-    /// The last character's width.
-    width: Length,
-    /// The kerning information for the last character.
-    kerning: LeftMap<'met>,
 }
 
 /// A representation of a glyph to be rendered.

@@ -30,11 +30,7 @@ impl Spec {
     /// Fails if the overrides try to make a width larger than the on-grid character width.
     pub fn into_map(self, grid_width: Length) -> Result<Map> {
         self.check(grid_width)?;
-        let overrides = self.expand_map();
-        Ok(Map {
-            overrides,
-            grid_width,
-        })
+        Ok(self.expand_map())
     }
 
     /// Expands the overrides in this spec.
@@ -64,18 +60,4 @@ impl Spec {
 }
 
 /// Maps characters to their widths.
-#[derive(Debug, Clone, Default)]
-pub struct Map {
-    /// The override map.
-    overrides: BTreeMap<char, Length>,
-    /// The default length, being the width of each cell in the font grid.
-    grid_width: Length,
-}
-
-impl Map {
-    /// Gets the length of a character.
-    #[must_use]
-    pub fn get(&self, c: char) -> Length {
-        self.overrides.get(&c).copied().unwrap_or(self.grid_width)
-    }
-}
+pub type Map = BTreeMap<char, Length>;

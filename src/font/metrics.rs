@@ -1,5 +1,6 @@
 //! Font metrics.
 
+pub mod chars;
 pub mod kerning;
 pub mod width;
 
@@ -54,8 +55,7 @@ impl Spec {
         Ok(Metrics {
             char: self.char,
             pad: self.pad,
-            widths: self.width_overrides.into_map(self.char.w)?,
-            kerning: self.kerning.into_map(self.pad.w)?,
+            chars: chars::Table::new(self.width_overrides, self.char.w, self.kerning, self.pad.w)?,
         })
     }
 }
@@ -70,10 +70,8 @@ pub struct Metrics {
     pub char: Size,
     /// Dimensions of padding between characters in the font.
     pub pad: Size,
-    /// Proportional character width map.
-    pub widths: width::Map,
-    /// Kerning map.
-    pub kerning: kerning::Map,
+    /// Map of characters to their width and kerning information.
+    pub chars: chars::Table,
 }
 
 impl Metrics {
@@ -120,7 +118,7 @@ impl Metrics {
     /// Like `span_w`, but calculates the width of `c` including any proportionality adjustments.
     #[must_use]
     pub fn span_w_char(&self, c: char) -> Length {
-        self.widths.get(c)
+        self.chars[c].width
     }
 
     /// Calculates the relative X-coordinate of `anchor` within `str`.
@@ -175,7 +173,7 @@ impl Metrics {
     #[must_use]
     fn glyph_size(&self, c: char) -> Size {
         Size {
-            w: self.widths.get(c),
+            w: self.span_w_char(c),
             h: self.char.h,
         }
     }

@@ -41,7 +41,7 @@ impl Spec {
     /// # Errors
     ///
     /// Fails if a kerning pair in the spec refers to a missing table.
-    pub fn into_map(self, default_spacing: Length) -> Result<Map> {
+    pub fn into_map(self) -> Result<Map> {
         let mut kerning_pairs: BTreeMap<char, BTreeMap<char, Length>> = BTreeMap::new();
         for ((lclass, rclass), length) in &self.pairs {
             let lefts = self.class(Direction::Left, lclass)?;
@@ -55,10 +55,7 @@ impl Spec {
             }
         }
 
-        Ok(Map {
-            kerning_pairs,
-            default_spacing,
-        })
+        Ok(kerning_pairs)
     }
 
     fn class(&self, dir: Direction, class: &str) -> Result<String> {
@@ -83,44 +80,7 @@ impl Spec {
 ///
 /// This is very similar in principle to a width override table, but for spacing between character
 /// pairs.
-#[derive(Clone, Debug, Default)]
-pub struct Map {
-    /// The specified kerning pairs.
-    kerning_pairs: BTreeMap<char, BTreeMap<char, Length>>,
-    /// The default spacing between glyphs.
-    default_spacing: Length,
-}
-
-impl Map {
-    /// Gets the map of kerning pairs with `left` as the left character.
-    #[must_use]
-    pub fn for_left(&self, left: char) -> LeftMap {
-        LeftMap {
-            rights: self.kerning_pairs.get(&left),
-            default_spacing: self.default_spacing,
-        }
-    }
-}
-
-/// The result of feeding a left character into the kerning map.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct LeftMap<'map> {
-    /// Map from right chars to length overrides.
-    rights: Option<&'map BTreeMap<char, Length>>,
-    /// The default spacing between glyphs.
-    default_spacing: Length,
-}
-
-impl<'map> LeftMap<'map> {
-    /// Gets the kerning between this map's leftward character and `right`.
-    #[must_use]
-    pub fn get(&self, right: char) -> Length {
-        self.rights
-            .and_then(|r| r.get(&right))
-            .copied()
-            .unwrap_or(self.default_spacing)
-    }
-}
+pub type Map = BTreeMap<char, BTreeMap<char, Length>>;
 
 /// Enumeration of possible errors when compiling a kerning list.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
