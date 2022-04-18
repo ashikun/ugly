@@ -38,7 +38,7 @@ impl<'str> String<'str> {
             char_metrics = &metrics.chars[char];
             let src_size = Size {
                 w: char_metrics.width,
-                h: metrics.span_h(1),
+                h: metrics.char.h,
             };
             let src_rect = metrics
                 .glyph_top_left(char)
