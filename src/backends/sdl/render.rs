@@ -64,14 +64,19 @@ where
     }
 
     fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> Result<()> {
-        let rect = super::metrics::convert_rect(&rect);
-        self.set_screen_bg(colour);
-        self.canvas.fill_rect(rect).map_err(Error::Backend)
+        let col = *self.colour_set.bg.get(colour);
+        // Don't fill if the colour is fully transparent; there's no point.
+        if !col.is_transparent() {
+            let rect = super::metrics::convert_rect(&rect);
+            self.set_screen_bg(col);
+            self.canvas.fill_rect(rect).map_err(Error::Backend)?;
+        }
+        Ok(())
     }
 
     /// Clears the screen.
     fn clear(&mut self, colour: Bg::Id) -> Result<()> {
-        self.set_screen_bg(colour);
+        self.set_screen_bg(*self.colour_set.bg.get(colour));
         self.canvas.clear();
         Ok(())
     }
@@ -107,9 +112,8 @@ where
     }
 
     // Sets the screen draw colour to `bg`.
-    fn set_screen_bg(&mut self, bg: Bg::Id) {
-        self.canvas
-            .set_draw_color(colour_to_sdl(*self.colour_set.bg.get(bg)));
+    fn set_screen_bg(&mut self, bg: colour::Definition) {
+        self.canvas.set_draw_color(colour_to_sdl(bg));
     }
 }
 

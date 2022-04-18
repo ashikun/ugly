@@ -33,7 +33,8 @@ where
     ///
     /// Fails if we can't construct the requisite canvas for the target.  
     pub fn new(target: Tgt, fonts: &'c Font, colours: &'c colour::Palette<Fg, Bg>) -> Result<Self> {
-        let canvas = target.into_canvas()?;
+        let mut canvas = target.into_canvas()?;
+        canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
         let textures = Tgt::texture_creator(&canvas);
         Ok(Self {
             canvas: RefCell::new(canvas),
