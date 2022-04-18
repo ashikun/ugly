@@ -1,7 +1,7 @@
 //! Layout algorithm for strings.
 
 use super::{
-    super::metrics::{Point, Rect},
+    super::metrics::{Anchor, Point, Rect, Size},
     metrics::chars::Entry,
     Metrics,
 };
@@ -28,14 +28,21 @@ impl<'str> String<'str> {
             glyphs: Vec::with_capacity(str.len()), // assuming best-case: ASCII
         };
 
-        let mut last_char = &Entry::default();
+        let mut char_metrics = &Entry::default();
 
         for char in str.chars() {
+            // Adjust for the previous character's metrics.
             // On the first iteration, this will just move by 0.
-            top_left.offset_mut(last_char.width + last_char.kerning(char), 0);
+            top_left.offset_mut(char_metrics.width + char_metrics.kerning(char), 0);
 
-            let src_rect = metrics.glyph_rect(char);
-            last_char = &metrics.chars[char];
+            char_metrics = &metrics.chars[char];
+            let src_size = Size {
+                w: char_metrics.width,
+                h: metrics.span_h(1),
+            };
+            let src_rect = metrics
+                .glyph_top_left(char)
+                .to_rect(src_size, Anchor::TOP_LEFT);
 
             let dst = Rect {
                 top_left,

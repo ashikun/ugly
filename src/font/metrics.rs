@@ -7,10 +7,7 @@ pub mod width;
 use crate::font::layout;
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::{
-    anchor::{self, Anchor},
-    Length, Point, Rect, Size,
-};
+use crate::metrics::{anchor, Length, Point, Size};
 
 // We hardcode the general layout of a font texture using the following
 // constants:
@@ -152,30 +149,19 @@ impl Metrics {
         }
     }
 
-    /// Bounding box for a glyph in the texture.
-    #[must_use]
-    pub fn glyph_rect(&self, char: char) -> Rect {
-        self.glyph_top_left(char)
-            .to_rect(self.glyph_size(char), Anchor::TOP_LEFT)
-    }
-
     /// The top-left position of the glyph for `char` in the font.
+    ///
+    /// Getting the glyph size requires a combination of consulting the character map (for width)
+    /// and this metrics structure (for height).  Since things that want the glyph top-left
+    /// tend to have their own copy of the character map information by the time they call
+    /// `glyph_top_left`, we don't expose any duplicate way of getting the size.
     #[must_use]
-    fn glyph_top_left(&self, char: char) -> Point {
+    pub fn glyph_top_left(&self, char: char) -> Point {
         // TODO(@MattWindsor91): glyph atlasing for >ASCII characters
         char_to_ascii(char).map_or_else(Point::default, |g| Point {
             x: glyph_axis(glyph_col(g), self.padded_w()),
             y: glyph_axis(glyph_row(g), self.padded_h()),
         })
-    }
-
-    /// The size of the glyph for `char` in the font.
-    #[must_use]
-    fn glyph_size(&self, c: char) -> Size {
-        Size {
-            w: self.span_w_char(c),
-            h: self.char.h,
-        }
     }
 }
 
