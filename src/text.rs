@@ -67,38 +67,30 @@ where
     }
 
     /// Changes the writer to use font `font_spec`.
-    #[must_use]
-    pub fn with_font(self, font_spec: font::Spec<Font::Id, Fg::Id>) -> Self {
+    pub fn set_font(&mut self, font_spec: font::Spec<Font::Id, Fg::Id>) {
         let font::Spec { id, colour } = font_spec;
-        self.with_font_id(id).with_colour(colour)
+        self.set_font_id(id);
+        self.set_colour(colour);
     }
 
     /// Changes the writer to use font ID `id`.
-    #[must_use]
-    pub fn with_font_id(mut self, id: Font::Id) -> Self {
+    pub fn set_font_id(&mut self, id: Font::Id) {
         self.options.font_spec.id = id;
-        self
     }
 
     /// Changes the writer to use foreground colour `fg`.
-    #[must_use]
-    pub fn with_colour(mut self, fg: Fg::Id) -> Self {
+    pub fn set_colour(&mut self, fg: Fg::Id) {
         self.options.font_spec.colour = fg;
-        self
     }
 
     /// Moves the writer to position `pos`.
-    #[must_use]
-    pub fn with_pos(mut self, pos: metrics::Point) -> Self {
+    pub fn move_to(&mut self, pos: metrics::Point) {
         self.options.pos = pos;
-        self
     }
 
     /// Re-aligns the writer to anchor `anchor`.
-    #[must_use]
-    pub fn align(mut self, anchor: metrics::anchor::X) -> Self {
+    pub fn align(&mut self, anchor: metrics::anchor::X) {
         self.options.alignment = anchor;
-        self
     }
 
     /// Flushes the current string to the renderer `r`.
@@ -120,7 +112,7 @@ where
 
         let str = mem::take(&mut self.current_str);
 
-        if self.last_hash.replace(hash) == Some(hash) {
+        if self.last_hash.replace(hash) != Some(hash) {
             self.layout(str);
         }
 
@@ -162,5 +154,77 @@ where
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         self.current_str.push_str(s);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        render::{Command, Logger, Renderer},
+        resource::DefaultingHashMap,
+    };
+    use std::collections::HashMap;
+    use std::fmt::Write;
+
+    #[test]
+    fn layout_hello_world() {
+        let mut met = font::Metrics::default();
+        met.char.w = 8;
+        met.char.h = 14;
+
+        let metrics = DefaultingHashMap::new(HashMap::<(), _>::new(), met);
+
+        let mut writer = Writer::<
+            DefaultingHashMap<(), _>,
+            DefaultingHashMap<(), _>,
+            DefaultingHashMap<(), _>,
+        >::new(&metrics);
+
+        let mut r: Logger<
+            DefaultingHashMap<(), _>,
+            DefaultingHashMap<(), _>,
+            DefaultingHashMap<(), _>,
+        > = Logger {
+            log: vec![],
+            metrics: metrics.clone(),
+        };
+
+        let tl1 = metrics::Point { x: 20, y: 10 };
+
+        r.clear(()).unwrap();
+        // Testing repeated cached layouting.
+        for _ in 0..2 {
+            writer.move_to(tl1);
+            writer.write_str("hell").unwrap();
+            writer.write_str("o, w").unwrap();
+            writer.write_str("orld").unwrap();
+
+            writer.render(&mut r).unwrap();
+        }
+        r.present();
+
+        for c in r.log.drain(0..) {
+            if let Command::Write(_, s) = c {
+                assert_eq!(s.string, "hello, world");
+                assert_eq!(s.bounds().top_left, tl1);
+            }
+        }
+
+        // Now we're moving and renaming, which will invalidate the cache.
+        let tl2 = metrics::Point { x: 10, y: 20 };
+        writer.move_to(tl2);
+        writer.write_str("how's it going?").unwrap();
+
+        r.clear(()).unwrap();
+        writer.render(&mut r).unwrap();
+        r.present();
+
+        for c in r.log.drain(0..) {
+            if let Command::Write(_, s) = c {
+                assert_eq!(s.string, "how's it going?");
+                assert_eq!(s.bounds().top_left, tl2);
+            }
+        }
     }
 }

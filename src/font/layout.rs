@@ -9,7 +9,7 @@ use super::{
 /// A laid-out string.
 ///
 /// The default [String] is empty and has no glyphs.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct String {
     /// The string that has been laid out.
     pub string: std::string::String,
@@ -66,12 +66,12 @@ impl String {
         let tl = self
             .glyphs
             .first()
-            .map(|x| x.src.top_left)
+            .map(|x| x.dst.top_left)
             .unwrap_or_default();
         let br = self
             .glyphs
             .last()
-            .map(|x| x.src.anchor(Anchor::BOTTOM_RIGHT))
+            .map(|x| x.dst.anchor(Anchor::BOTTOM_RIGHT))
             .unwrap_or_default();
 
         Rect::from_points(tl, br)

@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn span_w_str_overrides() {
         // 3*9 normal + 2*1 overrides + 4*1 padding
-        assert_eq!(big_font().span_w_str("Icing"), 33)
+        assert_eq!(big_font().span_w_str("Icing"), 33);
     }
 }
 

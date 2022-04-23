@@ -26,6 +26,7 @@ pub trait Map<Resource> {
 ///
 /// This map can be used as a resource map, so long as the key satisfies the various requirements
 /// to be both a [Map] key and a `HashMap` key.
+#[derive(Debug, Clone, Default)]
 pub struct DefaultingHashMap<K, V> {
     map: HashMap<K, V>,
     default: V,
