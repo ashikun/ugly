@@ -4,7 +4,6 @@ use std::cell::RefMut;
 
 use sdl2::render::{Canvas, RenderTarget};
 
-use crate::resource::Map;
 use crate::{
     colour,
     error::{Error, Result},
@@ -39,28 +38,21 @@ where
 {
     fn write(
         &mut self,
-        mut pos: metrics::Point,
         font: font::Spec<Font::Id, Fg::Id>,
-        s: &str,
-    ) -> Result<metrics::Point> {
+        string: &font::layout::String,
+    ) -> Result<()> {
         let texture = self.font_manager.texture(font)?;
-        let metrics = self.font_manager.metrics_set.get(font.id);
 
-        for glyph in crate::font::layout::String::layout(metrics, s, pos).glyphs {
+        for glyph in &string.glyphs {
             let src = super::metrics::convert_rect(&glyph.src);
             let dst = super::metrics::convert_rect(&glyph.dst);
-
-            // Move from the end of the last character to the start of the next one.
-            pos = glyph
-                .dst
-                .point(metrics.pad.w, 0, metrics::Anchor::TOP_RIGHT);
 
             self.canvas
                 .copy(&texture, src, dst)
                 .map_err(Error::Backend)?;
         }
 
-        Ok(pos)
+        Ok(())
     }
 
     fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> Result<()> {

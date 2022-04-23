@@ -1,7 +1,7 @@
 //! Enumerations for anchoring a position to a rectangle.
 
 /// A two-dimensional anchor.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Anchor {
     /// The X component of the anchor.
     pub x: X,
@@ -36,12 +36,20 @@ impl Anchor {
 }
 
 /// An anchor for the X co-ordinate.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum X {
     /// Anchoring to the left edge.
     Left,
     /// Anchoring to the right edge.
     Right,
+}
+
+/// The default anchor is left; this is because left is the usual orientation for things like
+/// text alignment.
+impl Default for X {
+    fn default() -> Self {
+        Self::Left
+    }
 }
 
 impl X {
@@ -65,7 +73,7 @@ impl X {
 }
 
 /// An anchor for the Y co-ordinate.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Y {
     /// Anchoring to the top edge.
     Top,

@@ -1,14 +1,40 @@
 //! Mid-level text composition interface.
 
-use std::marker;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::{marker, mem};
 
 use crate::{
     colour, error, font, metrics, render,
     resource::{self, Map},
 };
 
-/// Helper for positioned writing of strings.
-pub struct Writer<'r, Font: font::Map, Fg: resource::Map<colour::Definition>, Bg, R> {
+/// A formatted text renderer.
+///
+/// This type serves both as a builder for laying out and writing strings, as well as a basic cache
+/// method: the writer will not produce a
+pub struct Writer<'met, Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
+    /// The user-supplied options.
+    options: Options<Font::Id, Fg::Id>,
+
+    /// The string currently being built inside this writer.
+    current_str: String,
+
+    /// The most recently laid-out string.
+    layout: font::layout::String,
+
+    /// The last (string, options) hash.
+    last_hash: Option<u64>,
+
+    /// The font metrics table.
+    metrics: &'met Font::MetricsMap,
+
+    bg_phantom: marker::PhantomData<Bg>,
+}
+
+/// The set of options that has been set on the writer.
+#[derive(Default, PartialEq, Eq, Hash)]
+struct Options<FId, FgId> {
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -16,30 +42,27 @@ pub struct Writer<'r, Font: font::Map, Fg: resource::Map<colour::Definition>, Bg
     alignment: metrics::anchor::X,
 
     /// The specification of the font being used for writing.
-    font_spec: font::Spec<Font::Id, Fg::Id>,
-
-    /// Reference to the renderer being borrowed to do the rendering.
-    renderer: &'r mut R,
-
-    bg_phantom: marker::PhantomData<Bg>,
+    font_spec: font::Spec<FId, FgId>,
 }
 
-impl<'r, Font, Fg, Bg, R: render::Renderer<Font, Fg, Bg>> Writer<'r, Font, Fg, Bg, R>
+impl<'met, Font, Fg, Bg> Writer<'met, Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
 {
-    /// Constructs a writer on `renderer`, using the font spec `font_spec`.
+    /// Constructs a writer, using the given font metrics.
     ///
     /// The writer initially points to the origin and uses a left anchor.
-    pub fn new(renderer: &'r mut R) -> Self {
+    #[must_use]
+    pub fn new(metrics: &'met Font::MetricsMap) -> Self {
         Self {
-            renderer,
-            font_spec: font::Spec::default(),
-            pos: metrics::Point::default(),
-            alignment: metrics::anchor::X::Left,
+            metrics,
+            options: Options::default(),
+            current_str: String::default(),
+            layout: font::layout::String::default(),
             bg_phantom: marker::PhantomData::default(),
+            last_hash: None,
         }
     }
 
@@ -53,97 +76,91 @@ where
     /// Changes the writer to use font ID `id`.
     #[must_use]
     pub fn with_font_id(mut self, id: Font::Id) -> Self {
-        self.font_spec.id = id;
+        self.options.font_spec.id = id;
         self
     }
 
     /// Changes the writer to use foreground colour `fg`.
     #[must_use]
     pub fn with_colour(mut self, fg: Fg::Id) -> Self {
-        // No need to recalculate the font metrics if we're just changing the colour
-        self.font_spec.colour = fg;
+        self.options.font_spec.colour = fg;
         self
     }
 
     /// Moves the writer to position `pos`.
     #[must_use]
     pub fn with_pos(mut self, pos: metrics::Point) -> Self {
-        self.pos = pos;
+        self.options.pos = pos;
         self
     }
 
     /// Re-aligns the writer to anchor `anchor`.
     #[must_use]
     pub fn align(mut self, anchor: metrics::anchor::X) -> Self {
-        self.alignment = anchor;
+        self.options.alignment = anchor;
         self
     }
 
-    fn string_top_left(&self, s: &str) -> metrics::Point {
-        let m = self.renderer.font_metrics().get(self.font_spec.id);
-        self.pos.offset(-m.x_anchor_of_str(s, self.alignment), 0)
-    }
-}
+    /// Flushes the current string to the renderer `r`.
+    ///
+    /// Subsequent calls to the writing functions will now build a new string.
+    ///
+    /// If the string and parameters are the same as the last time this renderer was used, there
+    /// will not be a full layout calculation.  This means it is useful to reuse writers across
+    /// frames.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the renderer can't blit glyphs to the screen.
+    pub fn render<R: render::Renderer<Font, Fg, Bg>>(&mut self, r: &mut R) -> error::Result<()> {
+        // TODO(@MattWindsor91): don't hash on colour; it doesn't affect layout.
+        let mut hasher = DefaultHasher::new();
+        (&self.current_str, &self.options).hash(&mut hasher);
+        let hash = hasher.finish();
 
-/// We can use a writer's underlying renderer through it.
-impl<'r, Font, Fg, Bg, R> render::Renderer<Font, Fg, Bg> for Writer<'r, Font, Fg, Bg, R>
-where
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<colour::Definition>,
-    R: render::Renderer<Font, Fg, Bg>,
-{
-    fn write(
-        &mut self,
-        pos: metrics::Point,
-        font: font::Spec<Font::Id, Fg::Id>,
-        s: &str,
-    ) -> error::Result<metrics::Point> {
-        self.renderer.write(pos, font, s)
-    }
+        let str = mem::take(&mut self.current_str);
 
-    fn fill(&mut self, rect: super::metrics::Rect, colour: Bg::Id) -> error::Result<()> {
-        self.renderer.fill(rect, colour)
-    }
+        if self.last_hash.replace(hash) == Some(hash) {
+            self.layout(str);
+        }
 
-    fn clear(&mut self, colour: Bg::Id) -> error::Result<()> {
-        self.renderer.clear(colour)
+        r.write(self.options.font_spec, &self.layout)
     }
 
-    fn present(&mut self) {
-        self.renderer.present();
+    /// Lays out the given string, consuming it.
+    ///
+    /// (We do not use `self.current_str`, as it will have been reset at this point.)
+    fn layout(&mut self, str: String) {
+        let metrics = self.metrics.get(self.options.font_spec.id);
+
+        self.layout = font::layout::String::layout(metrics, str, self.options.pos);
+        self.align_layout();
     }
 
-    fn font_metrics(&self) -> &Font::MetricsMap {
-        self.renderer.font_metrics()
+    /// Adjusts the string layout if this is not left-aligned text.
+    fn align_layout(&mut self) {
+        if matches!(self.options.alignment, metrics::anchor::X::Left) {
+            return;
+        }
+        self.layout.offset_mut(
+            self.options.alignment.offset(self.layout.bounds().size.w),
+            0,
+        );
     }
 }
 
 /// We can use writers with Rust's formatting system.
-impl<'r, Font, Fg, Bg, R> std::fmt::Write for Writer<'r, Font, Fg, Bg, R>
+///
+/// This does not directly render to the screen, but instead concatenates onto the current string
+/// waiting to be laid out.
+impl<'met, Font, Fg, Bg> std::fmt::Write for Writer<'met, Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
-    R: render::Renderer<Font, Fg, Bg>,
 {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        self.pos = self
-            .renderer
-            .write(self.string_top_left(s), self.font_spec, s)
-            .map_err(|_| std::fmt::Error)?;
-
+        self.current_str.push_str(s);
         Ok(())
-    }
-
-    /// Forces a formatting write to send one string to `write_str`.
-    ///
-    /// This is to make non-left-aligned writes work as one would expect.
-    fn write_fmt(&mut self, args: std::fmt::Arguments<'_>) -> std::fmt::Result {
-        let cow = args.as_str().map_or_else(
-            || std::borrow::Cow::from(args.to_string()),
-            std::borrow::Cow::from,
-        );
-        self.write_str(&cow)
     }
 }

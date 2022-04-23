@@ -1,36 +1,39 @@
 //! Layout algorithm for strings.
 
 use super::{
-    super::metrics::{Anchor, Point, Rect, Size},
+    super::metrics::{Anchor, Length, Point, Rect, Size},
     metrics::chars::Entry,
     Metrics,
 };
 
-pub struct String<'str> {
+/// A laid-out string.
+///
+/// The default [String] is empty and has no glyphs.
+#[derive(Default)]
+pub struct String {
     /// The string that has been laid out.
-    pub string: &'str str,
+    pub string: std::string::String,
     /// The positions of each glyph.
     pub glyphs: Vec<Glyph>,
 }
 
-impl<'str> String<'str> {
+impl String {
     /// Lays out a string `string` at `top_left`, using `metrics`.
-    pub fn layout(
-        metrics: &Metrics,
-        string: &'str (impl AsRef<str> + ?Sized),
-        mut top_left: Point,
-    ) -> String<'str> {
+    ///
+    /// The resulting [String] will take ownership of `string`.
+    #[must_use]
+    pub fn layout(metrics: &Metrics, string: std::string::String, mut top_left: Point) -> String {
         // TODO(@MattWindsor91): newlines
 
-        let str = string.as_ref();
+        let len = string.len();
         let mut result = String {
-            string: str,
-            glyphs: Vec::with_capacity(str.len()), // assuming best-case: ASCII
+            string,
+            glyphs: Vec::with_capacity(len), // assuming best-case: ASCII
         };
 
         let mut char_metrics = &Entry::default();
 
-        for char in str.chars() {
+        for char in result.string.chars() {
             // Adjust for the previous character's metrics.
             // On the first iteration, this will just move by 0.
             top_left.offset_mut(char_metrics.width + char_metrics.kerning(char), 0);
@@ -52,6 +55,38 @@ impl<'str> String<'str> {
         }
 
         result
+    }
+
+    /// Calculates the bounds of this string.
+    ///
+    /// This is the rectangle formed by the top-left of the first character and the bottom-right
+    /// of the last character.
+    #[must_use]
+    pub fn bounds(&self) -> Rect {
+        let tl = self
+            .glyphs
+            .first()
+            .map(|x| x.src.top_left)
+            .unwrap_or_default();
+        let br = self
+            .glyphs
+            .last()
+            .map(|x| x.src.anchor(Anchor::BOTTOM_RIGHT))
+            .unwrap_or_default();
+
+        Rect::from_points(tl, br)
+    }
+
+    /// Moves each glyph in the layout by `dx` to the right and `dx` down.
+    pub fn offset_mut(&mut self, dx: Length, dy: Length) {
+        // No need to traverse if we aren't offsetting by anything.
+        if dx == 0 && dy == 0 {
+            return;
+        }
+
+        for g in &mut self.glyphs {
+            g.dst.top_left.offset_mut(dx, dy);
+        }
     }
 }
 

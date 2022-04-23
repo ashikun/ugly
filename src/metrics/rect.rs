@@ -25,6 +25,28 @@ impl Rect {
         }
     }
 
+    /// Makes a [Rect] with top-left at `top_left` and bottom-right at `bottom_right`.
+    ///
+    /// If `bottom_right` is not to the bottom-right of `top_left`, the rectangle will become
+    /// zero-sized.
+    ///
+    /// ```
+    /// use ugly::metrics::{Anchor, Point, Rect};
+    ///
+    /// let tl = Point{x: 20, y: 45};
+    /// let br = Point{x: 55, y: 70};
+    /// let rect = Rect::from_points(tl, br);
+    /// assert_eq!(tl, rect.anchor(Anchor::TOP_LEFT));
+    /// assert_eq!(br, rect.anchor(Anchor::BOTTOM_RIGHT));
+    /// ```
+    #[must_use]
+    pub fn from_points(top_left: Point, bottom_right: Point) -> Self {
+        let w = bottom_right.x - top_left.x;
+        let h = bottom_right.y - top_left.y;
+        let size = Size { w, h }.clamp();
+        Self { top_left, size }
+    }
+
     /// Resolves a point within a rectangle, given an offset (`dx`, `dy`) from
     /// `anchor`.
     #[must_use]

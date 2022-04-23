@@ -12,19 +12,16 @@ pub trait Renderer<
     Bg: resource::Map<colour::Definition>,
 >
 {
-    /// Writes the string `s` at position `pos` with the font `font`.
-    ///
-    /// Returns the position that the next character would be written to, if we continued writing.
+    /// Writes the layout-calculated string `str` with the font `font`.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't render the writing.
     fn write(
         &mut self,
-        pos: metrics::Point,
         font: font::Spec<Font::Id, Fg::Id>,
-        s: &str,
-    ) -> error::Result<metrics::Point>;
+        str: &font::layout::String,
+    ) -> error::Result<()>;
 
     /// Fills the rectangle `rect`, whose top-left is positioned relative to
     /// the current position, with the background colour `bg`.

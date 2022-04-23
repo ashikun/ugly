@@ -7,7 +7,7 @@ pub mod width;
 use crate::font::layout;
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::{anchor, Length, Point, Size};
+use crate::metrics::{Length, Point, Size};
 
 // We hardcode the general layout of a font texture using the following
 // constants:
@@ -104,7 +104,7 @@ impl Metrics {
     #[must_use]
     pub fn span_w_str(&self, str: &str) -> Length {
         // Pretend to lay out the string, then work out where the last character went.
-        layout::String::layout(self, str, Point::default())
+        layout::String::layout(self, str.to_string(), Point::default())
             .glyphs
             .last()
             .map_or(0, |glyph| {
@@ -116,17 +116,6 @@ impl Metrics {
     #[must_use]
     pub fn span_w_char(&self, c: char) -> Length {
         self.chars[c].width
-    }
-
-    /// Calculates the relative X-coordinate of `anchor` within `str`.
-    #[must_use]
-    pub fn x_anchor_of_str(&self, str: &str, anchor: anchor::X) -> Length {
-        // No need to do layout calculations if we're already at the left.
-        if matches!(anchor, anchor::X::Left) {
-            0
-        } else {
-            anchor.offset(self.span_w_str(str))
-        }
     }
 
     /// Signed maximal size of a vertical span `size` characters tall.

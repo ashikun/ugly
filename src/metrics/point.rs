@@ -8,7 +8,7 @@ pub type Coord = i32;
 /// A two-dimensional point.
 ///
 /// Points can have negative coordinates, to allow relative offsetting.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub struct Point {
     /// The X-coordinate of the point.
     pub x: Coord,
