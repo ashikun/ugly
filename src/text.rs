@@ -37,13 +37,13 @@ pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
 #[non_exhaustive]
 pub struct Options<FId, FgId> {
     /// The point used as the anchor for the writing.
-    pos: metrics::Point,
+    pub pos: metrics::Point,
 
     /// The alignment for the writing.
-    alignment: metrics::anchor::X,
+    pub alignment: metrics::anchor::X,
 
     /// The specification of the font being used for writing.
-    font_spec: font::Spec<FId, FgId>,
+    pub font_spec: font::Spec<FId, FgId>,
 }
 
 impl<Font, Fg, Bg> Writer<Font, Fg, Bg>
