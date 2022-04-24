@@ -66,36 +66,36 @@ where
         }
     }
 
-    /// Flushes the current string to the renderer `r`.
+    /// Renders the most recently `layout`-ed string.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the renderer can't blit glyphs to the screen.
+    pub fn render<R: render::Renderer<Font, Fg, Bg>>(&self, r: &mut R) -> error::Result<()> {
+        r.write(self.options.font_spec, &self.layout)
+    }
+
+    /// Lays out the current string, consuming it in the process.
     ///
     /// Subsequent calls to the writing functions will now build a new string.
     ///
     /// If the string and parameters are the same as the last time this renderer was used, there
     /// will not be a full layout calculation.  This means it is useful to reuse writers across
     /// frames.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the renderer can't blit glyphs to the screen.
-    pub fn render<R: render::Renderer<Font, Fg, Bg>>(&mut self, r: &mut R) -> error::Result<()> {
+    pub fn layout(&mut self, metrics: &Font::MetricsMap) {
         // TODO(@MattWindsor91): don't hash on colour; it doesn't affect layout.
         let mut hasher = DefaultHasher::new();
         (&self.current_str, &self.options).hash(&mut hasher);
         let hash = hasher.finish();
 
         let str = mem::take(&mut self.current_str);
-
         if self.last_hash.replace(hash) != Some(hash) {
-            self.layout(r.font_metrics(), str);
+            self.actually_layout(metrics, str);
         }
-
-        r.write(self.options.font_spec, &self.layout)
     }
 
-    /// Lays out the given string, consuming it.
-    ///
-    /// (We do not use `self.current_str`, as it will have been reset at this point.)
-    fn layout(&mut self, metrics: &Font::MetricsMap, str: String) {
+    /// Lays out `str` using `metrics`.
+    fn actually_layout(&mut self, metrics: &Font::MetricsMap, str: String) {
         let fm = metrics.get(self.options.font_spec.id);
 
         self.layout = font::layout::String::layout(fm, str, self.options.pos);
@@ -172,6 +172,7 @@ mod tests {
             writer.write_str("hell").unwrap();
             writer.write_str("o, w").unwrap();
             writer.write_str("orld").unwrap();
+            writer.layout(r.font_metrics());
 
             writer.render(&mut r).unwrap();
         }
@@ -188,6 +189,7 @@ mod tests {
         let tl2 = metrics::Point { x: 10, y: 20 };
         writer.options.pos = tl2;
         writer.write_str("how's it going?").unwrap();
+        writer.layout(r.font_metrics());
 
         r.clear(()).unwrap();
         writer.render(&mut r).unwrap();
