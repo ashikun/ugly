@@ -7,11 +7,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     let metrics = font.metrics().expect("couldn't load font metrics");
     c.bench_function("prop-kerned", |b| {
         b.iter(|| {
-            let _ = layout::String::layout(
+            layout::String::layout(
                 &metrics,
-                "The quick brown fox jumps over the lazy dog",
+                "The quick brown fox jumps over the lazy dog".to_string(),
                 Point::default(),
-            );
+            )
         })
     });
 }
