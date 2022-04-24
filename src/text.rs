@@ -13,7 +13,8 @@ use crate::{
 ///
 /// This type serves both as a builder for laying out and writing strings, as well as a basic cache
 /// method: the writer will not produce a
-pub struct Writer<'met, Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
+#[derive(Default)]
+pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
     /// The user-supplied options.
     options: Options<Font::Id, Fg::Id>,
 
@@ -25,9 +26,6 @@ pub struct Writer<'met, Font: font::Map, Fg: resource::Map<colour::Definition>, 
 
     /// The last (string, options) hash.
     last_hash: Option<u64>,
-
-    /// The font metrics table.
-    metrics: &'met Font::MetricsMap,
 
     bg_phantom: marker::PhantomData<Bg>,
 }
@@ -45,7 +43,7 @@ struct Options<FId, FgId> {
     font_spec: font::Spec<FId, FgId>,
 }
 
-impl<'met, Font, Fg, Bg> Writer<'met, Font, Fg, Bg>
+impl<Font, Fg, Bg> Writer<Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
@@ -55,9 +53,8 @@ where
     ///
     /// The writer initially points to the origin and uses a left anchor.
     #[must_use]
-    pub fn new(metrics: &'met Font::MetricsMap) -> Self {
+    pub fn new() -> Self {
         Self {
-            metrics,
             options: Options::default(),
             current_str: String::default(),
             layout: font::layout::String::default(),
@@ -113,7 +110,7 @@ where
         let str = mem::take(&mut self.current_str);
 
         if self.last_hash.replace(hash) != Some(hash) {
-            self.layout(str);
+            self.layout(r.font_metrics(), str);
         }
 
         r.write(self.options.font_spec, &self.layout)
@@ -122,10 +119,10 @@ where
     /// Lays out the given string, consuming it.
     ///
     /// (We do not use `self.current_str`, as it will have been reset at this point.)
-    fn layout(&mut self, str: String) {
-        let metrics = self.metrics.get(self.options.font_spec.id);
+    fn layout(&mut self, metrics: &Font::MetricsMap, str: String) {
+        let fm = metrics.get(self.options.font_spec.id);
 
-        self.layout = font::layout::String::layout(metrics, str, self.options.pos);
+        self.layout = font::layout::String::layout(fm, str, self.options.pos);
         self.align_layout();
     }
 
@@ -145,7 +142,7 @@ where
 ///
 /// This does not directly render to the screen, but instead concatenates onto the current string
 /// waiting to be laid out.
-impl<'met, Font, Fg, Bg> std::fmt::Write for Writer<'met, Font, Fg, Bg>
+impl<Font, Fg, Bg> std::fmt::Write for Writer<Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
@@ -179,7 +176,7 @@ mod tests {
             DefaultingHashMap<(), _>,
             DefaultingHashMap<(), _>,
             DefaultingHashMap<(), _>,
-        >::new(&metrics);
+        >::new();
 
         let mut r: Logger<
             DefaultingHashMap<(), _>,
@@ -187,7 +184,7 @@ mod tests {
             DefaultingHashMap<(), _>,
         > = Logger {
             log: vec![],
-            metrics: metrics.clone(),
+            metrics,
         };
 
         let tl1 = metrics::Point { x: 20, y: 10 };
