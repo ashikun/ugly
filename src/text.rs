@@ -16,7 +16,7 @@ use crate::{
 #[derive(Default)]
 pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
     /// The user-supplied options.
-    options: Options<Font::Id, Fg::Id>,
+    pub options: Options<Font::Id, Fg::Id>,
 
     /// The string currently being built inside this writer.
     current_str: String,
@@ -30,9 +30,12 @@ pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
     bg_phantom: marker::PhantomData<Bg>,
 }
 
-/// The set of options that has been set on the writer.
+/// The set of user-specifiable options on the writer.
+///
+/// These can be written to and read from at will.
 #[derive(Default, PartialEq, Eq, Hash)]
-struct Options<FId, FgId> {
+#[non_exhaustive]
+pub struct Options<FId, FgId> {
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -61,33 +64,6 @@ where
             bg_phantom: marker::PhantomData::default(),
             last_hash: None,
         }
-    }
-
-    /// Changes the writer to use font `font_spec`.
-    pub fn set_font(&mut self, font_spec: font::Spec<Font::Id, Fg::Id>) {
-        let font::Spec { id, colour } = font_spec;
-        self.set_font_id(id);
-        self.set_colour(colour);
-    }
-
-    /// Changes the writer to use font ID `id`.
-    pub fn set_font_id(&mut self, id: Font::Id) {
-        self.options.font_spec.id = id;
-    }
-
-    /// Changes the writer to use foreground colour `fg`.
-    pub fn set_colour(&mut self, fg: Fg::Id) {
-        self.options.font_spec.colour = fg;
-    }
-
-    /// Moves the writer to position `pos`.
-    pub fn move_to(&mut self, pos: metrics::Point) {
-        self.options.pos = pos;
-    }
-
-    /// Re-aligns the writer to anchor `anchor`.
-    pub fn align(&mut self, anchor: metrics::anchor::X) {
-        self.options.alignment = anchor;
     }
 
     /// Flushes the current string to the renderer `r`.
@@ -192,7 +168,7 @@ mod tests {
         r.clear(()).unwrap();
         // Testing repeated cached layouting.
         for _ in 0..2 {
-            writer.move_to(tl1);
+            writer.options.pos = tl1;
             writer.write_str("hell").unwrap();
             writer.write_str("o, w").unwrap();
             writer.write_str("orld").unwrap();
@@ -210,7 +186,7 @@ mod tests {
 
         // Now we're moving and renaming, which will invalidate the cache.
         let tl2 = metrics::Point { x: 10, y: 20 };
-        writer.move_to(tl2);
+        writer.options.pos = tl2;
         writer.write_str("how's it going?").unwrap();
 
         r.clear(()).unwrap();
