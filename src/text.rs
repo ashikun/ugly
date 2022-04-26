@@ -13,7 +13,7 @@ use crate::{
 ///
 /// This type serves both as a builder for laying out and writing strings, as well as a basic cache
 /// method: the writer will not produce a
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
     /// The user-supplied options.
     pub options: Options<Font::Id, Fg::Id>,
@@ -33,7 +33,7 @@ pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
 /// The set of user-specifiable options on the writer.
 ///
 /// These can be written to and read from at will.
-#[derive(Default, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct Options<FId, FgId> {
     /// The point used as the anchor for the writing.
