@@ -1,13 +1,25 @@
 //! Fonts, their metrics, and ways of loading and referring to them.
+//!
+//! The main type is [Font], which refers to a directory filled with font files.  Of these, one
+//! file is a serialisation of the font's [Metrics]; another is its texture (a PNG).
+//!
+//! Consumers of `ugly` supply two sets of identifiers that describe a particular font and its
+//! intended foreground colour.  To refer to such a [Font] in the `ugly` system, we have two main
+//! types.  A [Spec] refers to a combination of font and colour IDs, and is parametric.  A
+//! [Handle] represents a cached, resolved index into a rendering backend's own font tables, and is
+//! just a fancy `usize`.  Backends will supply a means for loading [Spec]s (producing [Handle]s)
+//! and rendering text using [Handle]s.
 
 pub mod error;
 pub mod layout;
+pub mod manager;
 pub mod metrics;
 pub mod spec;
 
 use std::path::PathBuf;
 
 pub use error::{Error, Result};
+pub use manager::{Cached, Index, Manager};
 pub use metrics::Metrics;
 pub use spec::Spec;
 
@@ -16,7 +28,7 @@ pub use spec::Spec;
 /// In `ugly`, a font is a directory containing two items: a texture file (PNG), and a metrics file
 /// (RON).
 #[derive(Clone, Debug)]
-pub struct Font(std::path::PathBuf);
+pub struct Font(PathBuf);
 
 impl Font {
     /// Creates a font that refers to the contents of a directory at `path`.

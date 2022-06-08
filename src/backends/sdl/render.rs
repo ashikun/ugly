@@ -29,19 +29,25 @@ where
     colour_set: &'a colour::Palette<Fg, Bg>,
 }
 
-impl<'a, Font, Fg, Bg, Tgt> render::Renderer<Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg, Tgt>
+impl<'a, Font, Fg, Bg, Tgt> render::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg, Tgt>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
     Tgt: RenderTarget,
 {
-    fn write(
-        &mut self,
-        font: font::Spec<Font::Id, Fg::Id>,
-        string: &font::layout::String,
-    ) -> Result<()> {
-        let texture = self.font_manager.texture(font)?;
+    type FMan = super::font::Manager<'a, Font, Fg, Tgt::Context>;
+
+    fn font_manager(&self) -> &Self::FMan {
+        &self.font_manager
+    }
+
+    fn font_manager_mut(&mut self) -> &mut Self::FMan {
+        &mut self.font_manager
+    }
+
+    fn write(&mut self, font: font::Index, string: &font::layout::String) -> Result<()> {
+        let texture = self.font_manager.data(font)?;
 
         for glyph in &string.glyphs {
             let src = super::metrics::convert_rect(&glyph.src);
@@ -76,10 +82,6 @@ where
     /// Refreshes the screen.
     fn present(&mut self) {
         self.canvas.present();
-    }
-
-    fn font_metrics(&self) -> &Font::MetricsMap {
-        &self.font_manager.metrics_set
     }
 }
 

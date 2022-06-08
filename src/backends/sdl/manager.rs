@@ -15,8 +15,8 @@ use crate::{colour, font, resource, Error, Result};
 ///
 /// `Tgt` is the type of the underlying render target (window or screen).
 pub struct Manager<'c, Font, Fg, Bg, Tgt: Target> {
-    canvas: RefCell<sdl2::render::Canvas<Tgt>>,
-    textures: sdl2::render::TextureCreator<Tgt::Context>,
+    canvas: RefCell<Canvas<Tgt>>,
+    textures: TextureCreator<Tgt::Context>,
     fonts: &'c Font,
     colours: &'c colour::Palette<Fg, Bg>,
 }
@@ -51,8 +51,10 @@ where
     /// Fails if we can't set up the font metrics map.
     pub fn renderer(&self) -> Result<super::render::Renderer<Font, Fg, Bg, Tgt>> {
         let metrics = self.fonts.load_metrics()?;
-        let font_manager =
-            super::font::Manager::new(&self.textures, self.fonts, metrics, &self.colours.fg);
+        let loader = super::font::Loader {
+            creator: &self.textures,
+        };
+        let font_manager = super::font::Manager::new(loader, self.fonts, metrics, &self.colours.fg);
         Ok(super::render::Renderer::new(
             self.canvas.borrow_mut(),
             font_manager,

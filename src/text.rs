@@ -1,22 +1,30 @@
 //! Mid-level text composition interface.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::{marker, mem};
 
-use crate::{
-    colour, error, font, metrics, render,
-    resource::{self, Map},
-};
+use crate::{colour, error, font, metrics, render, resource::Map};
 
 /// A formatted text renderer.
 ///
 /// This type serves both as a builder for laying out and writing strings, as well as a basic cache
-/// method: the writer will not produce a
+/// method: the writer will try to minimise re-layouting and font acquisition when strings and
+/// options change.
 #[derive(Default, Debug, Clone)]
-pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
-    /// The user-supplied options.
-    pub options: Options<Font::Id, Fg::Id>,
+pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
+    /// Caching information for the [Writer].
+    cache: Cache,
+
+    /// The point used as the anchor for the writing.
+    pos: metrics::Point,
+
+    /// The alignment for the writing.
+    alignment: metrics::anchor::X,
+
+    /// The spec of the font being used for writing.
+    font_spec: font::Spec<Font::Id, Fg::Id>,
+
+    /// The handle of the font being used for the writing; this should be in sync with `font_spec`.
+    font_index: font::Index,
 
     /// The string currently being built inside this writer.
     current_str: String,
@@ -24,33 +32,15 @@ pub struct Writer<Font: font::Map, Fg: resource::Map<colour::Definition>, Bg> {
     /// The most recently laid-out string.
     layout: font::layout::String,
 
-    /// The last (string, options) hash.
-    last_hash: Option<u64>,
-
+    /// Phantom type for the background colour.
     bg_phantom: marker::PhantomData<Bg>,
-}
-
-/// The set of user-specifiable options on the writer.
-///
-/// These can be written to and read from at will.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub struct Options<FId, FgId> {
-    /// The point used as the anchor for the writing.
-    pub pos: metrics::Point,
-
-    /// The alignment for the writing.
-    pub alignment: metrics::anchor::X,
-
-    /// The specification of the font being used for writing.
-    pub font_spec: font::Spec<FId, FgId>,
 }
 
 impl<Font, Fg, Bg> Writer<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<colour::Definition>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
 {
     /// Constructs a writer, using the given font metrics.
     ///
@@ -58,21 +48,63 @@ where
     #[must_use]
     pub fn new() -> Self {
         Self {
-            options: Options::default(),
+            cache: Cache::default(),
+            font_index: font::Index(0),
+            font_spec: font::Spec::default(),
             current_str: String::default(),
             layout: font::layout::String::default(),
             bg_phantom: marker::PhantomData::default(),
-            last_hash: None,
+            alignment: metrics::anchor::X::Left,
+            pos: metrics::Point::default(),
         }
     }
 
-    /// Renders the most recently `layout`-ed string.
+    /// Sets the alignment of this writer to `alignment`.
+    pub fn align_to(&mut self, alignment: metrics::anchor::X) {
+        if self.alignment != alignment {
+            self.alignment = alignment;
+
+            // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
+            self.cache.layout_reusable = false;
+        }
+    }
+
+    /// Sets the position of this writer to `pos`.
+    pub fn move_to(&mut self, pos: metrics::Point) {
+        if self.pos != pos {
+            self.pos = pos;
+
+            // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
+            self.cache.layout_reusable = false;
+        }
+    }
+
+    /// Sets the font of this writer to `spec`.
+    pub fn set_font(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
+        if self.font_spec != spec {
+            self.font_spec = spec;
+
+            self.cache.font_index_reusable = false;
+        }
+    }
+
+    /// Sets the string-to-be-rendered to `str`.
+    pub fn set_string(&mut self, str: &(impl ToString + ?Sized)) {
+        let old_str = mem::replace(&mut self.current_str, str.to_string());
+        // The layout needs to be junked if the string has changed.
+        self.cache.layout_reusable &= old_str == self.current_str;
+    }
+
+    /// Renders the most recently written string.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't blit glyphs to the screen.
-    pub fn render<R: render::Renderer<Font, Fg, Bg>>(&self, r: &mut R) -> error::Result<()> {
-        r.write(self.options.font_spec, &self.layout)
+    pub fn render<'f, R: render::Renderer<'f, Font, Fg, Bg>>(
+        &self,
+        r: &mut R,
+    ) -> error::Result<()> {
+        r.write(self.font_index, &self.layout)
     }
 
     /// Lays out the current string, consuming it in the process.
@@ -83,62 +115,50 @@ where
     /// will not be a full layout calculation.  This means it is useful to reuse writers across
     /// frames.
     pub fn layout(&mut self, metrics: &Font::MetricsMap) {
-        // TODO(@MattWindsor91): don't hash on colour; it doesn't affect layout.
-        let mut hasher = DefaultHasher::new();
-        (&self.current_str, &self.options).hash(&mut hasher);
-        let hash = hasher.finish();
-
-        let str = mem::take(&mut self.current_str);
-        if self.last_hash.replace(hash) != Some(hash) {
-            self.actually_layout(metrics, str);
+        // Optimistically assume that the next time we call `layout`, everything will be the same.
+        let reusable = mem::replace(&mut self.cache.layout_reusable, true);
+        if !reusable {
+            self.actually_layout(metrics);
         }
     }
 
     /// Lays out `str` using `metrics`.
-    fn actually_layout(&mut self, metrics: &Font::MetricsMap, str: String) {
-        let fm = metrics.get(self.options.font_spec.id);
+    fn actually_layout(&mut self, metrics: &Font::MetricsMap) {
+        let fm = metrics.get(self.font_spec.id);
 
-        self.layout = font::layout::String::layout(fm, str, self.options.pos);
+        self.layout = font::layout::String::layout(fm, self.current_str.clone(), self.pos);
         self.align_layout();
     }
 
     /// Adjusts the string layout if this is not left-aligned text.
     fn align_layout(&mut self) {
-        if matches!(self.options.alignment, metrics::anchor::X::Left) {
+        if matches!(self.alignment, metrics::anchor::X::Left) {
             return;
         }
-        self.layout.offset_mut(
-            self.options.alignment.offset(self.layout.bounds().size.w),
-            0,
-        );
+        self.layout
+            .offset_mut(self.alignment.offset(self.layout.bounds().size.w), 0);
     }
 }
 
-/// We can use writers with Rust's formatting system.
-///
-/// This does not directly render to the screen, but instead concatenates onto the current string
-/// waiting to be laid out.
-impl<Font, Fg, Bg> std::fmt::Write for Writer<Font, Fg, Bg>
-where
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<colour::Definition>,
-{
-    fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        self.current_str.push_str(s);
-        Ok(())
-    }
+/// Holds caching information for the [Writer].
+#[derive(Debug, Default, Copy, Clone)]
+struct Cache {
+    /// Can we reuse the last computed layout?
+    layout_reusable: bool,
+
+    /// Can we reuse the last font index?
+    font_index_reusable: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        render::{Command, Logger, Renderer},
+        font::Manager,
+        render::{logger, Renderer},
         resource::DefaultingHashMap,
     };
     use std::collections::HashMap;
-    use std::fmt::Write;
 
     #[test]
     fn layout_hello_world() {
@@ -154,32 +174,27 @@ mod tests {
             DefaultingHashMap<(), _>,
         >::new();
 
-        let mut r: Logger<
+        let mut r: logger::Logger<
             DefaultingHashMap<(), _>,
             DefaultingHashMap<(), _>,
             DefaultingHashMap<(), _>,
-        > = Logger {
-            log: vec![],
-            metrics,
-        };
+        > = logger::Logger::new(metrics);
 
         let tl1 = metrics::Point { x: 20, y: 10 };
 
         r.clear(()).unwrap();
         // Testing repeated cached layouting.
         for _ in 0..2 {
-            writer.options.pos = tl1;
-            writer.write_str("hell").unwrap();
-            writer.write_str("o, w").unwrap();
-            writer.write_str("orld").unwrap();
-            writer.layout(r.font_metrics());
+            writer.move_to(tl1);
+            writer.set_string("hello, world");
+            writer.layout(r.font_manager().metrics());
 
             writer.render(&mut r).unwrap();
         }
         r.present();
 
         for c in r.log.drain(0..) {
-            if let Command::Write(_, s) = c {
+            if let logger::Command::Write(_, s) = c {
                 assert_eq!(s.string, "hello, world");
                 assert_eq!(s.bounds().top_left, tl1);
             }
@@ -187,16 +202,16 @@ mod tests {
 
         // Now we're moving and renaming, which will invalidate the cache.
         let tl2 = metrics::Point { x: 10, y: 20 };
-        writer.options.pos = tl2;
-        writer.write_str("how's it going?").unwrap();
-        writer.layout(r.font_metrics());
+        writer.move_to(tl2);
+        writer.set_string("how's it going?");
+        writer.layout(r.font_manager().metrics());
 
         r.clear(()).unwrap();
         writer.render(&mut r).unwrap();
         r.present();
 
         for c in r.log.drain(0..) {
-            if let Command::Write(_, s) = c {
+            if let logger::Command::Write(_, s) = c {
                 assert_eq!(s.string, "how's it going?");
                 assert_eq!(s.bounds().top_left, tl2);
             }

@@ -1,6 +1,5 @@
 //! Errors raised by the font subsystem.
 
-use crate::font::metrics;
 use thiserror::Error;
 
 /// A font error.
@@ -26,7 +25,10 @@ pub enum Error {
     },
 
     #[error("Problem compiling kerning tables for font")]
-    Kerning(#[from] metrics::kerning::Error),
+    Kerning(#[from] super::metrics::kerning::Error),
+
+    #[error("Tried to use invalid font handle")]
+    BadHandle(super::Index),
 }
 
 /// Shorthand for a result using [Error].

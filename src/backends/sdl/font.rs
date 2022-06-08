@@ -1,93 +1,32 @@
-//! The font manager.
-
-use std::hash::Hash;
-use std::{collections::HashMap, rc::Rc};
+//! Specifics pertaining to how we set up the font manager for SDL2.
 
 use sdl2::{
     image::LoadTexture,
     render::{Texture, TextureCreator},
 };
 
-use crate::{colour, error::Result, font, resource};
+use crate::{colour, font};
 
-/// A font manager, using a SDL texture creator.
-///
-/// The lifeline `a` corresponds to the lifeline of the main resource manager.
-pub struct Manager<'a, Font, Fg, Ctx>
-where
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-{
-    /// The texture creator used to load fonts.
-    creator: &'a TextureCreator<Ctx>,
-    /// The map of current font textures.
-    textures: HashMap<font::Spec<Font::Id, Fg::Id>, Rc<Texture<'a>>>,
-    /// The font path set.
-    font_set: &'a Font,
-    /// The font metrics set.
-    pub metrics_set: Font::MetricsMap,
-    /// The foreground colour set, used for setting up font colours.
-    colour_set: &'a Fg,
+/// Adaptor to allow SDL texture creators to load in font PNGs as SDL textures.
+pub struct Loader<'a, Ctx> {
+    pub creator: &'a TextureCreator<Ctx>,
 }
 
-impl<'a, Font, Fg, Ctx> Manager<'a, Font, Fg, Ctx>
-where
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Font::Id: Eq + Hash,
-    Fg::Id: Eq + Hash,
-{
-    /// Creates a font manager with the given texture creator and config maps.
-    #[must_use]
-    pub fn new(
-        creator: &'a TextureCreator<Ctx>,
-        font_set: &'a Font,
-        metrics_set: Font::MetricsMap,
-        colour_set: &'a Fg,
-    ) -> Self {
-        Self {
-            creator,
-            textures: HashMap::new(),
-            font_set,
-            metrics_set,
-            colour_set,
-        }
-    }
+impl<'l, Ctx> font::manager::Loader<'l> for Loader<'l, Ctx> {
+    type Data = Texture<'l>;
 
-    /// Gets the given font spec as a texture, or loads it if
-    /// it hasn't yet been loaded.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if we need to load the font but SDL cannot for some
-    /// reason, or the font is not configured.
-    pub fn texture(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Rc<Texture<'a>>> {
-        self.textures
-            .get(&spec)
-            .cloned()
-            .map_or_else(|| self.cache(spec), Ok)
-    }
-
-    fn cache(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Rc<Texture<'a>>> {
-        let tex = Rc::new(self.load(spec)?);
-        self.textures.insert(spec, tex.clone());
-        Ok(tex)
-    }
-
-    fn load(&mut self, spec: font::Spec<Font::Id, Fg::Id>) -> Result<Texture<'a>> {
-        let id = spec.id;
-        let path = &self.font_set.get(id).texture_path();
-        let mut tex = self
-            .creator
+    fn load(&'l self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data> {
+        self.creator
             .load_texture(path)
-            .map_err(font::Error::TextureLoad)?;
-        self.colourise(&mut tex, spec.colour);
-        Ok(tex)
+            .map_err(font::Error::TextureLoad)
     }
 
-    fn colourise(&self, texture: &mut Texture, colour: Fg::Id) {
-        let &colour::Definition { r, g, b, a } = self.colour_set.get(colour);
-        texture.set_color_mod(r, g, b);
-        texture.set_alpha_mod(a);
+    fn colourise(&self, mut data: Self::Data, fg: colour::Definition) -> Self::Data {
+        data.set_color_mod(fg.r, fg.g, fg.b);
+        data.set_alpha_mod(fg.a);
+        data
     }
 }
+
+/// Shorthand for the type of font manager the SDL backend uses.
+pub type Manager<'a, Font, Fg, Ctx> = font::manager::Cached<'a, Font, Fg, Loader<'a, Ctx>>;

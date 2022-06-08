@@ -173,6 +173,10 @@ pub fn glyph_row(char: u8) -> u8 {
     char / NUM_COLS
 }
 
+fn char_to_ascii(c: char) -> Option<u8> {
+    u8::try_from(c).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,8 +212,4 @@ mod tests {
         // 3*9 normal + 2*1 overrides + 4*1 padding
         assert_eq!(big_font().span_w_str("Icing"), 33);
     }
-}
-
-fn char_to_ascii(c: char) -> Option<u8> {
-    u8::try_from(c).ok()
 }

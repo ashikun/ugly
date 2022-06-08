@@ -22,3 +22,7 @@ criterion = "0.3"
 [[bench]]
 name = "font_layout"
 harness = false
+
+[[bench]]
+name = "text_write"
+harness = false
