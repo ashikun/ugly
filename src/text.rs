@@ -59,6 +59,11 @@ where
         }
     }
 
+    /// Gets the alignment of this writer.
+    pub fn alignment(&self) -> metrics::anchor::X {
+        self.alignment
+    }
+
     /// Sets the alignment of this writer to `alignment`.
     pub fn align_to(&mut self, alignment: metrics::anchor::X) {
         if self.alignment != alignment {
@@ -69,6 +74,11 @@ where
         }
     }
 
+    /// Gets the position of this writer.
+    pub fn pos(&self) -> metrics::Point {
+        self.pos
+    }
+
     /// Sets the position of this writer to `pos`.
     pub fn move_to(&mut self, pos: metrics::Point) {
         if self.pos != pos {
@@ -77,6 +87,11 @@ where
             // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
             self.cache.layout_reusable = false;
         }
+    }
+
+    /// Gets the font spec of this writer.
+    pub fn font_spec(&self) -> &font::Spec<Font::Id, Fg::Id> {
+        &self.font_spec
     }
 
     /// Sets the font spec of this writer to `spec`.
