@@ -79,11 +79,31 @@ where
         }
     }
 
-    /// Sets the font of this writer to `spec`.
-    pub fn set_font(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
+    /// Sets the font spec of this writer to `spec`.
+    pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
         if self.font_spec != spec {
             self.font_spec = spec;
 
+            self.cache.font_index_reusable = false;
+        }
+    }
+
+    /// Sets the font of this writer to `id`.
+    pub fn set_font(&mut self, id: Font::Id) {
+        if self.font_spec.id != id {
+            self.font_spec.id = id;
+
+            self.cache.font_index_reusable = false;
+        }
+    }
+
+    /// Sets the foreground colour of this writer to `fg`.
+    pub fn set_fg(&mut self, fg: Fg::Id) {
+        if self.font_spec.colour != fg {
+            self.font_spec.colour = fg;
+
+            // TODO(@MattWindsor91): it might be worth making it so that colours don't count to
+            // font indexing.
             self.cache.font_index_reusable = false;
         }
     }
