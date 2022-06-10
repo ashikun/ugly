@@ -126,11 +126,13 @@ where
             let tex = self.loader.load(path)?;
             self.cache.push(tex);
 
-            index = Index(self.cache.len() - 1);
+            // TODO(@MattWindsor91): index usize::MAX should be off limits; we should raise an error
+            // here.
+            index = Index(self.cache.len());
             self.slot_mapping.set(id, index);
         }
 
-        let tex = &mut self.cache[index.0 - 1];
+        let tex = &mut self.cache[index.0];
         self.loader
             .colourise(tex, *self.colour_set.get(spec.colour));
         Ok(tex)
