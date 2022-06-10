@@ -121,14 +121,14 @@ where
         let id = spec.id;
         let mut index: Index = *self.slot_mapping.get(id);
         if index.is_unset() {
-            let path = &self.font_set.get(id).texture_path();
+            // This is where we're about to add a new index.
+            index = Index(self.cache.len());
 
+            let path = &self.font_set.get(id).texture_path();
             let tex = self.loader.load(path)?;
             self.cache.push(tex);
 
             // TODO(@MattWindsor91): index usize::MAX should be off limits; we should raise an error
-            // here.
-            index = Index(self.cache.len());
             self.slot_mapping.set(id, index);
         }
 
