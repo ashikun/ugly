@@ -19,7 +19,7 @@ pub mod spec;
 use std::path::PathBuf;
 
 pub use error::{Error, Result};
-pub use manager::{Cached, Index, Manager};
+pub use manager::{Index, Manager};
 pub use metrics::Metrics;
 pub use spec::Spec;
 
@@ -71,6 +71,10 @@ pub trait Map: super::resource::Map<Font> {
     /// The type of metrics maps produced by following this map.
     type MetricsMap: super::resource::Map<Metrics, Id = Self::Id>;
 
+    /// The type of font index maps produced by following this map.
+
+    type IndexMap: super::resource::MutableMap<Index, Id = Self::Id> + Default;
+
     /// Loads metrics for all fonts in the map.
     ///
     /// # Errors
@@ -83,6 +87,7 @@ impl<K: Copy + Clone + Default + std::hash::Hash + Eq> Map
     for super::resource::DefaultingHashMap<K, Font>
 {
     type MetricsMap = super::resource::DefaultingHashMap<K, Metrics>;
+    type IndexMap = super::resource::DefaultingHashMap<K, Index>;
 
     fn load_metrics(&self) -> Result<Self::MetricsMap> {
         let map = self

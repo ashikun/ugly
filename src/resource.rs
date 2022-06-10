@@ -18,8 +18,14 @@ pub trait Map<Resource> {
     /// black foreground colour, and a medium-sized font.
     type Id: Copy + Clone + Default + Eq + Hash;
 
-    /// Gets the resource at ID `id`.
+    /// Gets the resource at ID `k`.
     fn get(&self, k: Self::Id) -> &Resource;
+}
+
+/// A resource map that can be modified.
+pub trait MutableMap<Resource>: Map<Resource> {
+    /// Sets the resource at ID `k` to `v`.
+    fn set(&mut self, k: Self::Id, v: Resource);
 }
 
 /// A `HashMap` with a default value attached, for use when a requested key is not available.
@@ -38,6 +44,12 @@ impl<K: Copy + Clone + Default + Eq + Hash, V> Map<V> for DefaultingHashMap<K, V
 
     fn get(&self, k: K) -> &V {
         self.map.get(&k).unwrap_or(&self.default)
+    }
+}
+
+impl<K: Copy + Clone + Default + Eq + Hash, V> MutableMap<V> for DefaultingHashMap<K, V> {
+    fn set(&mut self, k: K, v: V) {
+        self.map.insert(k, v);
     }
 }
 

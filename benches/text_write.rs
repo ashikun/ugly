@@ -1,11 +1,7 @@
 //! Benchmarks the repeated writing of simple text strings.
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::collections::HashMap;
-use ugly::{
-    colour,
-    font::{self, Manager},
-    render, resource, text, Renderer,
-};
+use ugly::{colour, font, render, resource, text, Renderer};
 
 /// Benchmarks writing the same string several times in a row without changing anything.
 fn write_same(c: &mut Criterion) {
@@ -61,7 +57,7 @@ fn setup_write(
 
     let logger = render::logger::Logger::new(mmap);
     let mut writer = text::Writer::new();
-    writer.set_font(font::Spec::default());
+    writer.set_font_spec(font::Spec::default());
     (logger, writer)
 }
 
@@ -76,7 +72,7 @@ fn write_repeatedly(
 ) {
     for i in 0..things_to_write.len() {
         writer.set_string(things_to_write[i % things_to_write.len()]);
-        writer.layout(logger.font_manager().metrics());
+        writer.layout(logger.font_metrics());
         writer
             .render(&mut logger)
             .expect("should not fail to render");

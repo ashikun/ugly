@@ -51,9 +51,7 @@ where
     /// Fails if we can't set up the font metrics map.
     pub fn renderer(&self) -> Result<super::render::Renderer<Font, Fg, Bg, Tgt>> {
         let metrics = self.fonts.load_metrics()?;
-        let loader = super::font::Loader {
-            creator: &self.textures,
-        };
+        let loader = &self.textures;
         let font_manager = super::font::Manager::new(loader, self.fonts, metrics, &self.colours.fg);
         Ok(super::render::Renderer::new(
             self.canvas.borrow_mut(),

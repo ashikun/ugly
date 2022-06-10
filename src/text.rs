@@ -11,9 +11,6 @@ use crate::{colour, error, font, metrics, render, resource::Map};
 /// options change.
 #[derive(Default, Debug, Clone)]
 pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
-    /// Caching information for the [Writer].
-    cache: Cache,
-
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -23,9 +20,6 @@ pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
     /// The spec of the font being used for writing.
     font_spec: font::Spec<Font::Id, Fg::Id>,
 
-    /// The handle of the font being used for the writing; this should be in sync with `font_spec`.
-    font_index: font::Index,
-
     /// The string currently being built inside this writer.
     current_str: String,
 
@@ -34,6 +28,9 @@ pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
 
     /// Phantom type for the background colour.
     bg_phantom: marker::PhantomData<Bg>,
+
+    /// Can we reuse the last computed layout?
+    layout_reusable: bool,
 }
 
 impl<Font, Fg, Bg> Writer<Font, Fg, Bg>
@@ -48,14 +45,13 @@ where
     #[must_use]
     pub fn new() -> Self {
         Self {
-            cache: Cache::default(),
-            font_index: font::Index(0),
+            pos: metrics::Point::default(),
+            alignment: metrics::anchor::X::Left,
             font_spec: font::Spec::default(),
             current_str: String::default(),
             layout: font::layout::String::default(),
             bg_phantom: marker::PhantomData::default(),
-            alignment: metrics::anchor::X::Left,
-            pos: metrics::Point::default(),
+            layout_reusable: false,
         }
     }
 
@@ -70,7 +66,7 @@ where
             self.alignment = alignment;
 
             // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
-            self.cache.layout_reusable = false;
+            self.layout_reusable = false;
         }
     }
 
@@ -85,7 +81,7 @@ where
             self.pos = pos;
 
             // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
-            self.cache.layout_reusable = false;
+            self.layout_reusable = false;
         }
     }
 
@@ -96,38 +92,24 @@ where
 
     /// Sets the font spec of this writer to `spec`.
     pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
-        if self.font_spec != spec {
-            self.font_spec = spec;
-
-            self.cache.font_index_reusable = false;
-        }
+        self.font_spec = spec;
     }
 
     /// Sets the font of this writer to `id`.
     pub fn set_font(&mut self, id: Font::Id) {
-        if self.font_spec.id != id {
-            self.font_spec.id = id;
-
-            self.cache.font_index_reusable = false;
-        }
+        self.font_spec.id = id;
     }
 
     /// Sets the foreground colour of this writer to `fg`.
     pub fn set_fg(&mut self, fg: Fg::Id) {
-        if self.font_spec.colour != fg {
-            self.font_spec.colour = fg;
-
-            // TODO(@MattWindsor91): it might be worth making it so that colours don't count to
-            // font indexing.
-            self.cache.font_index_reusable = false;
-        }
+        self.font_spec.colour = fg;
     }
 
     /// Sets the string-to-be-rendered to `str`.
     pub fn set_string(&mut self, str: &(impl ToString + ?Sized)) {
         let old_str = mem::replace(&mut self.current_str, str.to_string());
         // The layout needs to be junked if the string has changed.
-        self.cache.layout_reusable &= old_str == self.current_str;
+        self.layout_reusable &= old_str == self.current_str;
     }
 
     /// Renders the most recently written string.
@@ -139,7 +121,7 @@ where
         &self,
         r: &mut R,
     ) -> error::Result<()> {
-        r.write(self.font_index, &self.layout)
+        r.write(self.font_spec, &self.layout)
     }
 
     /// Lays out the current string, consuming it in the process.
@@ -151,7 +133,7 @@ where
     /// frames.
     pub fn layout(&mut self, metrics: &Font::MetricsMap) {
         // Optimistically assume that the next time we call `layout`, everything will be the same.
-        let reusable = mem::replace(&mut self.cache.layout_reusable, true);
+        let reusable = mem::replace(&mut self.layout_reusable, true);
         if !reusable {
             self.actually_layout(metrics);
         }
@@ -175,21 +157,10 @@ where
     }
 }
 
-/// Holds caching information for the [Writer].
-#[derive(Debug, Default, Copy, Clone)]
-struct Cache {
-    /// Can we reuse the last computed layout?
-    layout_reusable: bool,
-
-    /// Can we reuse the last font index?
-    font_index_reusable: bool,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        font::Manager,
         render::{logger, Renderer},
         resource::DefaultingHashMap,
     };
@@ -222,7 +193,7 @@ mod tests {
         for _ in 0..2 {
             writer.move_to(tl1);
             writer.set_string("hello, world");
-            writer.layout(r.font_manager().metrics());
+            writer.layout(r.font_metrics());
 
             writer.render(&mut r).unwrap();
         }
@@ -239,7 +210,7 @@ mod tests {
         let tl2 = metrics::Point { x: 10, y: 20 };
         writer.move_to(tl2);
         writer.set_string("how's it going?");
-        writer.layout(r.font_manager().metrics());
+        writer.layout(r.font_metrics());
 
         r.clear(()).unwrap();
         writer.render(&mut r).unwrap();

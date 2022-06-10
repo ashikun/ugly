@@ -9,7 +9,7 @@ use super::{colour, error, font, metrics, resource};
 /// The trait is parameterised by the specific maps used to look up font metrics and colours
 /// in the application.
 ///
-/// The lifetime `'f` captures any lifetime constraints on the font manager.
+/// The lifetime `'f` captures any lifetime constraints on font data.
 pub trait Renderer<
     'f,
     Font: font::Map,
@@ -17,21 +17,19 @@ pub trait Renderer<
     Bg: resource::Map<colour::Definition>,
 >
 {
-    /// The type of font managers returned by `font_manager_mut`.
-    type FMan: font::Manager<'f, Font, Fg>;
-
-    /// Gets an immutable reference to this renderer's font manager.
-    fn font_manager(&self) -> &Self::FMan;
-
-    /// Gets a mutable reference to this renderer's font manager.
-    fn font_manager_mut(&mut self) -> &mut Self::FMan;
+    /// Gets an immutable reference to this renderer's font metrics.
+    fn font_metrics(&self) -> &Font::MetricsMap;
 
     /// Writes the layout-calculated string `str` with the font `font`.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't render the writing.
-    fn write(&mut self, font: font::Index, str: &font::layout::String) -> error::Result<()>;
+    fn write(
+        &mut self,
+        font: font::Spec<Font::Id, Fg::Id>,
+        str: &font::layout::String,
+    ) -> error::Result<()>;
 
     /// Fills the rectangle `rect`, whose top-left is positioned relative to
     /// the current position, with the background colour `bg`.

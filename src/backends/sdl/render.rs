@@ -36,25 +36,23 @@ where
     Bg: resource::Map<colour::Definition>,
     Tgt: RenderTarget,
 {
-    type FMan = super::font::Manager<'a, Font, Fg, Tgt::Context>;
-
-    fn font_manager(&self) -> &Self::FMan {
-        &self.font_manager
+    fn font_metrics(&self) -> &Font::MetricsMap {
+        self.font_manager.metrics()
     }
 
-    fn font_manager_mut(&mut self) -> &mut Self::FMan {
-        &mut self.font_manager
-    }
-
-    fn write(&mut self, font: font::Index, string: &font::layout::String) -> Result<()> {
-        let texture = self.font_manager.data(font)?;
+    fn write(
+        &mut self,
+        font: font::Spec<Font::Id, Fg::Id>,
+        string: &font::layout::String,
+    ) -> Result<()> {
+        let texture = self.font_manager.data(&font)?;
 
         for glyph in &string.glyphs {
             let src = super::metrics::convert_rect(&glyph.src);
             let dst = super::metrics::convert_rect(&glyph.dst);
 
             self.canvas
-                .copy(&texture, src, dst)
+                .copy(texture, src, dst)
                 .map_err(Error::Backend)?;
         }
 

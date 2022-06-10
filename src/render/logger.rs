@@ -12,7 +12,7 @@ pub enum Command<FontId, FgId, BgId> {
     /// Represents a `load_font` command (both the input spec and the output index).
     LoadFont(font::Spec<FontId, FgId>, font::Index),
     /// Represents a `write` command.
-    Write(font::Index, font::layout::String),
+    Write(font::Spec<FontId, FgId>, font::layout::String),
     /// Represents a `fill` command.
     Fill(metrics::Rect, BgId),
     /// Represents a `clear` command.
@@ -49,46 +49,21 @@ where
     }
 }
 
-/// The [Logger] takes font manager responsibilities for itself.
-impl<Font, Fg, Bg> font::Manager<'static, Font, Fg> for Logger<Font, Fg, Bg>
-where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
-{
-    fn fetch(&mut self, font: font::Spec<Font::Id, Fg::Id>) -> font::Result<font::Index> {
-        let index = self.fonts.get(&font).copied().unwrap_or_else(|| {
-            let index = font::Index(self.fonts.len());
-            self.fonts.insert(font, index);
-            index
-        });
-
-        self.log.push(Command::LoadFont(font, index));
-        Ok(index)
-    }
-
-    fn metrics(&self) -> &Font::MetricsMap {
-        &self.metrics
-    }
-}
-
 impl<Font, Fg, Bg> Renderer<'static, Font, Fg, Bg> for Logger<Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: Map<colour::Definition>,
     Bg: Map<colour::Definition>,
 {
-    type FMan = Self;
-
-    fn font_manager(&self) -> &Self::FMan {
-        self
+    fn font_metrics(&self) -> &Font::MetricsMap {
+        &self.metrics
     }
 
-    fn font_manager_mut(&mut self) -> &mut Self::FMan {
-        self
-    }
-
-    fn write(&mut self, font: font::Index, str: &font::layout::String) -> crate::Result<()> {
+    fn write(
+        &mut self,
+        font: font::Spec<Font::Id, Fg::Id>,
+        str: &font::layout::String,
+    ) -> crate::Result<()> {
         self.log.push(Command::Write(font, str.clone()));
         Ok(())
     }
