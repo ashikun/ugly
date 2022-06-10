@@ -48,8 +48,8 @@ where
         let texture = self.font_manager.data(&font)?;
 
         for glyph in &string.glyphs {
-            let src = super::metrics::convert_rect(&glyph.src);
-            let dst = super::metrics::convert_rect(&glyph.dst);
+            let src = convert_rect(&glyph.src);
+            let dst = convert_rect(&glyph.dst);
 
             self.canvas
                 .copy(texture, src, dst)
@@ -63,7 +63,7 @@ where
         let col = *self.colour_set.bg.get(colour);
         // Don't fill if the colour is fully transparent; there's no point.
         if !col.is_transparent() {
-            let rect = super::metrics::convert_rect(&rect);
+            let rect = convert_rect(&rect);
             self.set_screen_bg(col);
             self.canvas.fill_rect(rect).map_err(Error::Backend)?;
         }
@@ -112,4 +112,13 @@ where
 /// Converts an `ugly` colour to a SDL one.
 fn colour_to_sdl(c: colour::Definition) -> sdl2::pixels::Color {
     sdl2::pixels::Color::RGBA(c.r, c.g, c.b, c.a)
+}
+
+/// Converts a rect from `ugly` to SDL.
+#[must_use]
+#[allow(clippy::cast_sign_loss)]
+fn convert_rect(r: &metrics::Rect) -> sdl2::rect::Rect {
+    let w = r.size.w.max(0) as u32;
+    let h = r.size.h.max(0) as u32;
+    sdl2::rect::Rect::new(r.top_left.x, r.top_left.y, w, h)
 }
