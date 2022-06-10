@@ -124,9 +124,7 @@ where
         r.write(self.font_spec, &self.layout)
     }
 
-    /// Lays out the current string, consuming it in the process.
-    ///
-    /// Subsequent calls to the writing functions will now build a new string.
+    /// Lays out the current string.
     ///
     /// If the string and parameters are the same as the last time this renderer was used, there
     /// will not be a full layout calculation.  This means it is useful to reuse writers across
@@ -149,11 +147,15 @@ where
 
     /// Adjusts the string layout if this is not left-aligned text.
     fn align_layout(&mut self) {
+        // No point doing offsets if the anchor is left; the offset would be 0.
         if matches!(self.alignment, metrics::anchor::X::Left) {
             return;
         }
+        // `self.alignment.offset` is the number of pixels between the left and the anchor, so we
+        // need to move so that the position (which is currently the left) is *on* that anchor.
+        // This means the offset must be backwards.
         self.layout
-            .offset_mut(self.alignment.offset(self.layout.bounds().size.w), 0);
+            .offset_mut(-self.alignment.offset(self.layout.bounds().size.w), 0);
     }
 }
 
