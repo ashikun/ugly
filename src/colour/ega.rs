@@ -47,7 +47,7 @@ pub const EGA: Ega = Ega {
 };
 
 /// The base identifier set for EGA.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub enum BaseId {
     Black,
     Blue,
@@ -56,6 +56,7 @@ pub enum BaseId {
     Red,
     Magenta,
     Yellow,
+    #[default]
     White,
 }
 
@@ -64,13 +65,6 @@ pub enum BaseId {
 pub enum Id {
     Bright(BaseId),
     Dark(BaseId),
-}
-
-/// The default base EGA identifier is white, as we assume that we're targeting foreground.
-impl Default for BaseId {
-    fn default() -> Self {
-        BaseId::White
-    }
 }
 
 /// The default EGA identifier is bright white, as we assume that we're targeting foreground.

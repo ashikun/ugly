@@ -9,6 +9,17 @@ pub struct Anchor {
     pub y: Y,
 }
 
+/// The default anchor is top-left.
+///
+/// This is considered the default anchor because, for instance, font rendering in
+/// left-to-right languages naturally proceeds from the top-left.
+impl Default for Anchor {
+    fn default() -> Self {
+        // TODO: when Rust supports generalised enum default derivations, use that instead
+        Self::TOP_LEFT
+    }
+}
+
 impl Anchor {
     /// Top-left anchoring.
     pub const TOP_LEFT: Self = Anchor {
@@ -36,20 +47,16 @@ impl Anchor {
 }
 
 /// An anchor for the X co-ordinate.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum X {
     /// Anchoring to the left edge.
+    ///
+    /// This is considered the default X-anchor because, for instance, font rendering in
+    /// left-to-right languages naturally proceeds from the top-left.
+    #[default]
     Left,
     /// Anchoring to the right edge.
     Right,
-}
-
-/// The default anchor is left; this is because left is the usual orientation for things like
-/// text alignment.
-impl Default for X {
-    fn default() -> Self {
-        Self::Left
-    }
 }
 
 impl X {
@@ -73,11 +80,15 @@ impl X {
 }
 
 /// An anchor for the Y co-ordinate.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Y {
     /// Anchoring to the top edge.
+    ///
+    /// This is considered the default Y-anchor because, for instance, font rendering in
+    /// left-to-right languages naturally proceeds from the top-left.
+    #[default]
     Top,
-    /// anchoring to the bottom edge.
+    /// Anchoring to the bottom edge.
     Bottom,
 }
 
@@ -98,5 +109,22 @@ impl Y {
             Self::Top => 0,
             Self::Bottom => height,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Checks that the default anchor is made up of the default X and Y anchors.
+    #[test]
+    fn default_agreement() {
+        assert_eq!(
+            Anchor::default(),
+            Anchor {
+                x: X::default(),
+                y: Y::default()
+            }
+        );
     }
 }
