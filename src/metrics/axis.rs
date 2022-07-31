@@ -1,4 +1,4 @@
-//! Two-dimensional axes.
+//! Two-dimensional axes (or orientations).
 
 use super::Size;
 
@@ -13,6 +13,9 @@ pub enum Axis {
 
 impl Axis {
     /// Stacks `sizes` along this axis.
+    ///
+    /// The result is the sum of the length in the direction of the axis, and the maximum of the
+    /// length in the other direction.
     #[must_use]
     pub fn stack_many(&self, sizes: impl IntoIterator<Item = Size>) -> Size {
         sizes
@@ -63,7 +66,13 @@ impl Axis {
     }
 }
 
-/// [Size]s may be indexed by axis.
+/// Sizes may be indexed by axis.
+///
+///
+/// Indexing horizontally provides the X-coordinate; indexing vertically produces the
+/// Y-coordinate.
+///
+/// # Example
 ///
 /// ```
 /// use ugly::metrics::{Axis, Size};
@@ -83,7 +92,7 @@ impl std::ops::Index<Axis> for Size {
     }
 }
 
-/// [Size]s may be indexed mutably by axis.
+/// Sizes may be indexed mutably by axis.
 impl std::ops::IndexMut<Axis> for Size {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
         match index {
@@ -93,7 +102,10 @@ impl std::ops::IndexMut<Axis> for Size {
     }
 }
 
-/// [Point]s may be indexed by axis.
+/// Points may be indexed by axis.
+///
+/// Indexing horizontally provides the X-coordinate; indexing vertically produces the
+/// Y-coordinate.
 ///
 /// ```
 /// use ugly::metrics::{Axis, Point};
@@ -113,7 +125,7 @@ impl std::ops::Index<Axis> for super::Point {
     }
 }
 
-/// [Point]s may be indexed mutably by axis.
+/// Points may be indexed mutably by axis.
 impl std::ops::IndexMut<Axis> for super::Point {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
         match index {

@@ -31,5 +31,5 @@ pub enum Error {
     BadHandle(super::Index),
 }
 
-/// Shorthand for a result using [Error].
+/// Shorthand for a result using [enum@Error].
 pub type Result<T> = std::result::Result<T, Error>;

@@ -21,5 +21,5 @@ pub enum Error {
     Backend(String),
 }
 
-/// Shorthand for a `std::result::Result` over [Error].
+/// Shorthand for a `std::result::Result` over [enum@Error].
 pub type Result<T> = std::result::Result<T, Error>;

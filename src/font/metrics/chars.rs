@@ -86,7 +86,7 @@ fn add_width(table: &mut Subtable<Entry>, width: width::Map, default: &Entry) {
 
 /// Type of character tables.
 ///
-/// This table is optimised for speed in looking up ASCII values
+/// This table is optimised for speed in looking up ASCII values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Subtable<T> {
     /// Array of ASCII character values.
@@ -168,7 +168,7 @@ impl<T> FromIterator<(char, T)> for Subtable<T> {
     }
 }
 
-/// A character left-table.
+/// A character left-table entry.
 ///
 /// The left-table contains the width of the character (used for advancing past it to the next
 /// character in the layout algorithm) as well as the right kerning table.
@@ -184,7 +184,7 @@ pub struct Entry {
     /// The right kerning table of this character, if any.
     ///
     /// This maps characters on the right-hand side of a pair to kerning adjustments with respect to the
-    /// character to which the parent [Left] table belongs.  Each kerning adjustment is absolute (ie,
+    /// character to which the parent left-table belongs.  Each kerning adjustment is absolute (ie,
     /// it completely replaces the default spacing).
     pub rights: Option<Subtable<Length>>,
 

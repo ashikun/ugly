@@ -1,8 +1,15 @@
 [package]
-name = "ugly"
-version = "0.1.0"
 authors = ["Ashi Stanmore <me@ashikun.xyz>"]
+categories = ["graphics", "ui"]
+documentation = "https://docs.rs/ugly"
 edition = "2021"
+homepage = "https://github.com/ashikun/ugly"
+keywords = ["graphics", "sdl", "fonts"]
+license = "MIT"
+name = "ugly"
+readme = "README.md"
+repository = "https://github.com/ashikun/ugly"
+version = "0.1.0"
 
 [features]
 # Enables the SDL backend.

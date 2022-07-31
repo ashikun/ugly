@@ -5,10 +5,10 @@
 //!
 //! Consumers of `ugly` supply two sets of identifiers that describe a particular font and its
 //! intended foreground colour.  To refer to such a [Font] in the `ugly` system, we have two main
-//! types.  A [Spec] refers to a combination of font and colour IDs, and is parametric.  A
-//! [Handle] represents a cached, resolved index into a rendering backend's own font tables, and is
-//! just a fancy `usize`.  Backends will supply a means for loading [Spec]s (producing [Handle]s)
-//! and rendering text using [Handle]s.
+//! types.  A [Spec] refers to a combination of font and colour IDs, and is parametric.  An
+//! [Index] represents a cached, resolved index into a rendering backend's own font tables, and is
+//! just a fancy `usize`.  Backends will supply a means for loading [Spec]s (producing [Index]es)
+//! and rendering text using [Index]es.
 
 pub mod error;
 pub mod layout;
