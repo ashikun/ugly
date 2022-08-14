@@ -15,12 +15,12 @@ version = "0.1.0"
 css-color-parser = "0.1.2"
 ron = "0.7.1"
 sdl2 = { version = "0.35.2", features = ["image"], optional = true }
-serde = { version = "1.0.138", features = ["derive"] }
-serde_with = "1.14.0"
+serde = { version = "1.0.140", features = ["derive"] }
+serde_with = "2.0.0"
 thiserror = "1.0.31"
 
 [dev-dependencies]
-criterion = "0.3.5"
+criterion = "0.3.6"
 
 [[bench]]
 name = "font_layout"
