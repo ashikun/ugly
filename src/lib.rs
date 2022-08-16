@@ -13,6 +13,7 @@ pub mod metrics;
 pub mod render;
 pub mod resource;
 pub mod text;
+pub mod ui;
 
 // Generally, we re-export anything where the name would stutter; these tend to be the most
 // important type in the respective module anyway.
