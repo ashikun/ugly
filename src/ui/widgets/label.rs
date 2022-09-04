@@ -14,8 +14,8 @@ use super::super::{
 pub struct Label<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: Map<colour::Definition, Id = Fg>,
-    Bg: Map<colour::Definition, Id = Fg>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
 {
     /// The most recently computed bounding box for the label.
     bounds: metrics::Rect,
@@ -30,12 +30,12 @@ where
 impl<Font, Fg, Bg> Label<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: Map<colour::Definition, Id = Fg>,
-    Bg: Map<colour::Definition, Id = Fg>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
 {
     /// Constructs a label with the given font specification.
     #[must_use]
-    pub fn new(font_spec: font::Spec<Font::Id, Fg>) -> Self {
+    pub fn new(font_spec: font::Spec<Font::Id, Fg::Id>) -> Self {
         let mut writer = Writer::new();
         writer.set_font_spec(font_spec);
 
@@ -57,7 +57,7 @@ where
     }
 
     /// Sets the foreground colour of the label.
-    pub fn set_fg(&mut self, fg: Fg) {
+    pub fn set_fg(&mut self, fg: Fg::Id) {
         self.writer.set_fg(fg);
     }
 
@@ -67,7 +67,7 @@ where
     }
 
     /// Sets the font spec of the label.
-    pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg>) {
+    pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
         self.writer.set_font_spec(spec);
     }
 
