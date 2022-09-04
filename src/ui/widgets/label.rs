@@ -90,8 +90,8 @@ where
 impl<Font, Fg, Bg, Ctx> Layoutable<Ctx> for Label<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: Map<colour::Definition, Id = Fg>,
-    Bg: Map<colour::Definition, Id = Fg>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
     Ctx: Context<Font>,
 {
     fn min_bounds(&self, ctx: &Ctx) -> metrics::Size {
@@ -113,8 +113,8 @@ where
 impl<Font, Fg, Bg, Ctx> Updatable<Ctx> for Label<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: Map<colour::Definition, Id = Fg>,
-    Bg: Map<colour::Definition, Id = Fg>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
     Ctx: Context<Font>,
 {
     type State = str;
@@ -128,8 +128,8 @@ where
 impl<'r, Font, Fg, Bg, R: Renderer<'r, Font, Fg, Bg>> Renderable<R> for Label<Font, Fg, Bg>
 where
     Font: font::Map,
-    Fg: Map<colour::Definition, Id = Fg>,
-    Bg: Map<colour::Definition, Id = Fg>,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
 {
     fn render(&self, r: &mut R) -> Result<()> {
         self.writer.render(r)
