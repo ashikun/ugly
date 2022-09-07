@@ -32,8 +32,27 @@ impl Size {
         }
     }
 
+    /// Returns a size that is the maximum of `self` and `other` in both axes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use ugly::metrics::Size;
+    ///
+    /// assert_eq!(Size{w: 42, h: 22}, Size{w: 42, h:10}.superimpose(Size{w: 20, h: 22}));
+    /// ```
+    #[must_use]
+    pub fn superimpose(self, other: Self) -> Self {
+        Self {
+            w: self.w.max(other.w),
+            h: self.h.max(other.h),
+        }
+    }
+
     /// Returns a size that is the maximum of `self` and `other` horizontally, and their sum
     /// vertically.
+    ///
+    /// # Example
     ///
     /// ```
     /// use ugly::metrics::Size;

@@ -17,6 +17,18 @@ pub struct Rect {
 
 impl Rect {
     /// Makes a [Rect] with top-left at (`x`, `y`), width `w`, and height `h`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use ugly::metrics::{Anchor, Point, Rect};
+    ///
+    /// let rect = Rect::new(20, 55, 25, 15);
+    /// assert_eq!(20, rect.top_left.x);
+    /// assert_eq!(55, rect.top_left.y);
+    /// assert_eq!(25, rect.size.w);
+    /// assert_eq!(15, rect.size.h);
+    /// ```
     #[must_use]
     pub fn new(x: Coord, y: Coord, w: Length, h: Length) -> Self {
         Self {
@@ -29,6 +41,8 @@ impl Rect {
     ///
     /// If `bottom_right` is not to the bottom-right of `top_left`, the rectangle will become
     /// zero-sized.
+    ///
+    /// # Example
     ///
     /// ```
     /// use ugly::metrics::{Anchor, Point, Rect};
@@ -58,6 +72,18 @@ impl Rect {
     }
 
     /// Shorthand for getting an anchor point on a rect.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use ugly::metrics::{Anchor, Point, Rect};
+    ///
+    /// let rect = Rect::new(20, 55, 25, 15);
+    /// assert_eq!(Point{x: 20, y: 55}, rect.anchor(Anchor::TOP_LEFT));
+    /// assert_eq!(Point{x: 45, y: 55}, rect.anchor(Anchor::TOP_RIGHT));
+    /// assert_eq!(Point{x: 20, y: 70}, rect.anchor(Anchor::BOTTOM_LEFT));
+    /// assert_eq!(Point{x: 45, y: 70}, rect.anchor(Anchor::BOTTOM_RIGHT));
+    /// ```
     #[must_use]
     pub fn anchor(self, anchor: Anchor) -> Point {
         self.point(0, 0, anchor)
