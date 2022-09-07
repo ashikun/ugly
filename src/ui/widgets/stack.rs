@@ -203,7 +203,7 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Entry<W> {
 
     fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
         self.widget.layout(ctx, bounds);
-        self.visible = bounds.size.is_zero();
+        self.visible = !bounds.size.is_zero();
     }
 }
 
