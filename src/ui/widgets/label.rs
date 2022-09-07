@@ -100,10 +100,6 @@ where
             .text_size(i32::from(self.min_chars), 1)
     }
 
-    fn actual_bounds(&self) -> metrics::Rect {
-        self.bounds
-    }
-
     fn layout(&mut self, _: &Ctx, bounds: metrics::Rect) {
         self.bounds = bounds;
     }

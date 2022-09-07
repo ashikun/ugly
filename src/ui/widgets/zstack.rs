@@ -1,4 +1,4 @@
-//! The [ZStack] widget and its implementations.
+//! The [`ZStack`] widget and its implementations.
 
 use super::super::{
     super::{metrics, Result},
@@ -13,8 +13,6 @@ use super::super::{
 /// widgets will be laid out on top of each other with the same bounding box.
 #[derive(Clone, Debug)]
 pub struct ZStack<W> {
-    /// The bounding box of the stack.
-    bounds: metrics::Rect,
     /// The contents of the stack, with their ratios.
     contents: Vec<W>,
 }
@@ -23,10 +21,7 @@ pub struct ZStack<W> {
 impl<W> Default for ZStack<W> {
     fn default() -> Self {
         // We can't derive this, because it would require W to be impl Default.
-        ZStack {
-            bounds: metrics::Rect::default(),
-            contents: vec![],
-        }
+        ZStack { contents: vec![] }
     }
 }
 
@@ -38,13 +33,7 @@ impl<C, W: Layoutable<C>> Layoutable<C> for ZStack<W> {
         })
     }
 
-    fn actual_bounds(&self) -> metrics::Rect {
-        self.bounds
-    }
-
     fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
-        self.bounds = bounds;
-
         for c in &mut self.contents {
             c.layout(ctx, bounds);
         }

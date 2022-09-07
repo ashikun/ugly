@@ -14,8 +14,6 @@ use std::marker::PhantomData;
 /// Useful for testing, forcing gaps between other widgets, etc.
 #[derive(Copy, Clone)]
 pub struct Spacer<C, S> {
-    /// Bounds actually consumed by the spacer.
-    bounds: metrics::Rect,
     /// Source providing the minimum size required by the spacer.
     min_bounds_source: BoundsSource<C>,
     /// Phantom type for the state ignored by the spacer.
@@ -27,7 +25,6 @@ impl<C, S> Default for Spacer<C, S> {
     fn default() -> Self {
         // We can't derive this, because it would require S to be impl Default.
         Spacer {
-            bounds: metrics::Rect::default(),
             min_bounds_source: BoundsSource::Static(metrics::Size::default()),
             state: PhantomData::default(),
         }
@@ -43,13 +40,7 @@ impl<C, S> Layoutable<C> for Spacer<C, S> {
         }
     }
 
-    fn actual_bounds(&self) -> metrics::Rect {
-        self.bounds
-    }
-
-    fn layout(&mut self, _ctx: &C, bounds: metrics::Rect) {
-        self.bounds = bounds;
-    }
+    fn layout(&mut self, _ctx: &C, _bounds: metrics::Rect) {}
 }
 
 /// Spacers are vacuously updatable.

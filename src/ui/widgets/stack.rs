@@ -31,10 +31,6 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Stack<W> {
             .stack_many(self.contents.iter().map(|x| x.widget.min_bounds(ctx)))
     }
 
-    fn actual_bounds(&self) -> metrics::Rect {
-        self.bounds
-    }
-
     fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
         self.bounds = bounds;
 
@@ -205,13 +201,9 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Entry<W> {
         self.widget.min_bounds(ctx)
     }
 
-    fn actual_bounds(&self) -> metrics::Rect {
-        self.widget.actual_bounds()
-    }
-
     fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
         self.widget.layout(ctx, bounds);
-        self.visible = !self.actual_bounds().size.is_zero();
+        self.visible = bounds.size.is_zero();
     }
 }
 
