@@ -112,7 +112,7 @@ impl<W> Stack<W> {
         self.orientation.stack_many(
             self.contents
                 .iter()
-                .filter_map(|x| (x.ratio == 0).then(|| x.min_bounds)),
+                .filter_map(|x| (x.ratio == 0).then_some(x.min_bounds)),
         )
     }
 }
