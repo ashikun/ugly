@@ -13,11 +13,11 @@ version = "0.1.0"
 
 [dependencies]
 css-color-parser = "0.1.2"
-ron = "0.7.1"
+ron = "0.8.0"
 sdl2 = { version = "0.35.2", features = ["image"], optional = true }
-serde = { version = "1.0.140", features = ["derive"] }
+serde = { version = "1.0.144", features = ["derive"] }
 serde_with = "2.0.0"
-thiserror = "1.0.31"
+thiserror = "1.0.34"
 
 [dev-dependencies]
 criterion = "0.3.6"

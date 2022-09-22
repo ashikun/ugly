@@ -11,7 +11,7 @@ pub enum Error {
 
     /// An error occurred while loading a metrics file.
     #[error("Error parsing metrics file")]
-    MetricsParse(#[from] ron::de::Error),
+    MetricsParse(#[from] ron::de::SpannedError),
 
     /// Error loading a texture file.
     #[error("Error loading font texture")]
