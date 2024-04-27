@@ -60,7 +60,7 @@ impl<K: Eq + Hash, V> DefaultingHashMap<K, V> {
         DefaultingHashMap {
             map,
             default,
-            phantom: PhantomData::default(),
+            phantom: PhantomData {},
         }
     }
 

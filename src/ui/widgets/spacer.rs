@@ -26,7 +26,7 @@ impl<C, S> Default for Spacer<C, S> {
         // We can't derive this, because it would require S to be impl Default.
         Spacer {
             min_bounds_source: BoundsSource::Static(metrics::Size::default()),
-            state: PhantomData::default(),
+            state: PhantomData {},
         }
     }
 }

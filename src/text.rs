@@ -50,7 +50,7 @@ where
             font_spec: font::Spec::default(),
             current_str: String::default(),
             layout: font::layout::String::default(),
-            bg_phantom: marker::PhantomData::default(),
+            bg_phantom: marker::PhantomData {},
             layout_reusable: false,
         }
     }

@@ -98,18 +98,8 @@ pub struct Subtable<T> {
 impl<T> Subtable<T> {
     #[must_use]
     pub fn new() -> Self {
-        // https://www.joshmcguigan.com/blog/array-initialization-rust/
-        let mut uninit: [std::mem::MaybeUninit<Option<Box<T>>>; 128] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-        for elem in &mut uninit {
-            unsafe {
-                std::ptr::write(elem.as_mut_ptr(), None);
-            }
-        }
-        let ascii = unsafe { std::mem::transmute(uninit) };
-
         Self {
-            ascii,
+            ascii: std::array::from_fn(|_| None),
             non_ascii: BTreeMap::new(),
         }
     }

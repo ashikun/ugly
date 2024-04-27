@@ -1,6 +1,6 @@
 [package]
 authors = ["Ashi Stanmore <me@ashikun.xyz>"]
-categories = ["graphics", "ui"]
+categories = ["graphics"]
 documentation = "https://docs.rs/ugly"
 edition = "2021"
 homepage = "https://github.com/ashikun/ugly"
@@ -14,13 +14,13 @@ version = "0.1.0"
 [dependencies]
 css-color-parser = "0.1.2"
 ron = "0.8.0"
-sdl2 = { version = "0.35.2", features = ["image"], optional = true }
-serde = { version = "1.0.144", features = ["derive"] }
-serde_with = "2.0.0"
-thiserror = "1.0.34"
+sdl2 = { version = "0.36.0", features = ["image"], optional = true }
+serde = { version = "1.0.199", features = ["derive"] }
+serde_with = "3.8.0"
+thiserror = "1.0.59"
 
 [dev-dependencies]
-criterion = "0.3.6"
+criterion = "0.5.1"
 
 [[bench]]
 name = "font_layout"
