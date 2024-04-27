@@ -39,19 +39,16 @@ impl String {
             top_left.offset_mut(char_metrics.width + char_metrics.kerning(char), 0);
 
             char_metrics = &metrics.chars[char];
-            let src_size = Size {
+            let size = Size {
                 w: char_metrics.width,
                 h: metrics.char.h,
             };
-            let src_rect = metrics
-                .glyph_top_left(char)
-                .to_rect(src_size, Anchor::TOP_LEFT);
+            let src_top_left = metrics.glyph_top_left(char);
 
-            let dst = Rect {
-                top_left,
-                ..src_rect
-            };
-            result.glyphs.push(Glyph { src: src_rect, dst });
+            let src = src_top_left.to_rect(size, Anchor::TOP_LEFT);
+            let dst = top_left.to_rect(size, Anchor::TOP_LEFT);
+
+            result.glyphs.push(Glyph { src, dst });
         }
 
         result
@@ -66,13 +63,11 @@ impl String {
         let tl = self
             .glyphs
             .first()
-            .map(|x| x.dst.top_left)
-            .unwrap_or_default();
+            .map_or_else(Default::default, |x| x.dst.top_left);
         let br = self
             .glyphs
             .last()
-            .map(|x| x.dst.anchor(Anchor::BOTTOM_RIGHT))
-            .unwrap_or_default();
+            .map_or_else(Default::default, |x| x.dst.anchor(Anchor::BOTTOM_RIGHT));
 
         Rect::from_points(tl, br)
     }

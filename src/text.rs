@@ -148,9 +148,10 @@ where
     /// Adjusts the string layout if this is not left-aligned text.
     fn align_layout(&mut self) {
         // No point doing offsets if the anchor is left; the offset would be 0.
-        if matches!(self.alignment, metrics::anchor::X::Left) {
+        if let metrics::anchor::X::Left = self.alignment {
             return;
         }
+
         // `self.alignment.offset` is the number of pixels between the left and the anchor, so we
         // need to move so that the position (which is currently the left) is *on* that anchor.
         // This means the offset must be backwards.
