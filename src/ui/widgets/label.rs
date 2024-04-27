@@ -137,3 +137,10 @@ pub trait Context<Font: font::Map> {
     /// Gets the font metrics map.
     fn font_metrics(&self) -> &Font::MetricsMap;
 }
+
+/// If we have a font map type, its metrics map is inherently a label context.
+impl<Font: font::Map> Context<Font> for Font::MetricsMap {
+    fn font_metrics(&self) -> &Font::MetricsMap {
+        self
+    }
+}
