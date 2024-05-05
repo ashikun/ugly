@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ugly = { path = "..", features = ["sdl2"] }
-sdl2 = { version = "0.36.0", features = ["image"] }
+ugly = { path = ".." }
 anyhow = "1.0.82"
 thiserror = "1.0.59"
+winit = "0.30.0"
+wgpu = "0.20.0"
+ouroboros = "0.18.3"
+pollster = "0.3.0"
