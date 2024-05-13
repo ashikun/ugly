@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 ugly = { path = ".." }
-anyhow = "1.0.82"
-thiserror = "1.0.59"
+anyhow = "1.0.83"
+thiserror = "1.0.60"
 winit = "0.30.0"
 wgpu = "0.20.0"
 ouroboros = "0.18.3"

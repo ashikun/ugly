@@ -1,8 +1,7 @@
 //! Rendering using `wgpu`.
 use std::mem::size_of;
-use wgpu::core::resource::StagingBuffer;
 use wgpu::util::DeviceExt;
-use wgpu::{BufferAddress, Color, IndexFormat, PipelineCompilationOptions, COPY_BUFFER_ALIGNMENT};
+use wgpu::{BufferAddress, IndexFormat, PipelineCompilationOptions};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -13,13 +12,13 @@ use crate::{colour, font, resource, Error, Result};
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [f32; 2],
+    position: [i32; 2],
     colour: [f32; 4],
 }
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
+        wgpu::vertex_attr_array![0 => Sint32x2, 1 => Float32x4];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
@@ -30,6 +29,15 @@ impl Vertex {
             attributes: &Self::ATTRIBS,
         }
     }
+}
+
+/// The layout of the uniform buffer.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Uniform {
+    /// The current screen size, in pixels.
+    /// Used to convert screen coordinates to clip-space coordinates.
+    screen_size: [u32; 2],
 }
 
 pub struct Renderer<
@@ -69,12 +77,6 @@ impl<
         let Point { x: x1, y: y1 } = rect.anchor(Anchor::TOP_LEFT);
         let Point { x: x2, y: y2 } = rect.anchor(Anchor::BOTTOM_RIGHT);
 
-        // TODO: safely cast or drop length to 16
-        let x1 = self.convert_x(x1);
-        let x2 = self.convert_x(x2);
-        let y1 = self.convert_y(y1);
-        let y2 = self.convert_y(y2);
-
         // TODO: sRGB conversion
         let colour = [
             f32::from(colour.r),
@@ -87,11 +89,7 @@ impl<
         self.vertices.extend([
             Vertex {
                 colour,
-                position: [x1, y1],
-            },
-            Vertex {
-                colour,
-                position: [x2, y1],
+                position: [x1, y2],
             },
             Vertex {
                 colour,
@@ -99,7 +97,11 @@ impl<
             },
             Vertex {
                 colour,
-                position: [x1, y2],
+                position: [x2, y1],
+            },
+            Vertex {
+                colour,
+                position: [x1, y1],
             },
         ]);
 
@@ -138,7 +140,7 @@ impl<
         let metrics = fonts.load_metrics()?;
 
         let result = Self {
-            bg: Default::default(),
+            bg: colour::Definition::default(),
             fonts,
             metrics,
             palette,
@@ -148,26 +150,6 @@ impl<
         };
 
         Ok(result)
-    }
-
-    fn convert_x(&self, x: crate::metrics::Length) -> f32 {
-        // TODO: move this to the shader
-        let w = f64::from(self.core.size.width);
-        let x = f64::from(x);
-
-        let x = (x / (w * 0.5)) - 1.0;
-
-        x as f32
-    }
-
-    fn convert_y(&self, y: crate::metrics::Length) -> f32 {
-        // TODO: move this to the shader
-        let h = f64::from(self.core.size.height);
-        let y = f64::from(y);
-
-        let y = (y / (h * 0.5)) - 1.0;
-
-        y as f32
     }
 
     /// Looks up a background colour.
@@ -188,8 +170,12 @@ pub struct Core<'a> {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group: wgpu::BindGroup,
+
     size: PhysicalSize<u32>,
 }
 
@@ -227,45 +213,47 @@ impl<'a> Core<'a> {
 
         let size = window.inner_size();
 
-        let surface_caps = surface.get_capabilities(&adapter);
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(wgpu::TextureFormat::is_srgb)
-            .unwrap_or(surface_caps.formats[0]);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
+        let config = create_surface_config(&surface, &adapter, size);
         surface.configure(&device, &config);
 
-        let vertex_buffer_desc = wgpu::BufferDescriptor {
-            label: Some("Vertex Buffer"),
-            size: (size_of::<Vertex>() as BufferAddress) * 256 * COPY_BUFFER_ALIGNMENT,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        };
-        let vertex_buffer = device.create_buffer(&vertex_buffer_desc);
+        let vertex_buffer = create_vertex_buffer(&device);
+        let index_buffer = create_index_buffer(&device);
 
-        let index_buffer_desc = wgpu::BufferDescriptor {
-            label: Some("Index Buffer"),
-            size: (size_of::<u16>() as BufferAddress) * 256 * COPY_BUFFER_ALIGNMENT,
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
+        let uniform = Uniform {
+            screen_size: [size.width, size.height],
         };
-        let index_buffer = device.create_buffer(&index_buffer_desc);
+        let uniform_buffer = create_uniform_buffer(&device, uniform);
+
+        let uniform_bind_group_layout_desc = wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: Some("uniform_bind_group_layout"),
+        };
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&uniform_bind_group_layout_desc);
+
+        let uniform_bind_group_desc = wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("uniform_bind_group"),
+        };
+        let uniform_bind_group = device.create_bind_group(&uniform_bind_group_desc);
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
         let pipeline_layout_desc = wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&uniform_bind_group_layout],
             push_constant_ranges: &[],
         };
         let pipeline_layout = device.create_pipeline_layout(&pipeline_layout_desc);
@@ -316,6 +304,8 @@ impl<'a> Core<'a> {
             pipeline,
             vertex_buffer,
             index_buffer,
+            uniform_buffer,
+            uniform_bind_group,
             size,
         })
     }
@@ -352,6 +342,7 @@ impl<'a> Core<'a> {
             });
 
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.draw_indexed(0..((indices.len() as u32) + 1), 0, 0..1);
@@ -371,5 +362,64 @@ impl<'a> Core<'a> {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
+
+        let uniform = Uniform {
+            screen_size: [self.size.width, self.size.height],
+        };
+        self.queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
     }
+}
+
+fn create_surface_config(
+    surface: &wgpu::Surface,
+    adapter: &wgpu::Adapter,
+    size: PhysicalSize<u32>,
+) -> wgpu::SurfaceConfiguration {
+    let surface_caps = surface.get_capabilities(adapter);
+    let surface_format = surface_caps
+        .formats
+        .iter()
+        .copied()
+        .find(wgpu::TextureFormat::is_srgb)
+        .unwrap_or(surface_caps.formats[0]);
+    wgpu::SurfaceConfiguration {
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        format: surface_format,
+        width: size.width,
+        height: size.height,
+        present_mode: surface_caps.present_modes[0],
+        alpha_mode: surface_caps.alpha_modes[0],
+        view_formats: vec![],
+        desired_maximum_frame_latency: 2,
+    }
+}
+
+fn create_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    let desc = wgpu::BufferDescriptor {
+        label: Some("Vertex Buffer"),
+        size: (size_of::<Vertex>() as BufferAddress) * 256 * wgpu::COPY_BUFFER_ALIGNMENT,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    };
+    device.create_buffer(&desc)
+}
+
+fn create_index_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    let desc = wgpu::BufferDescriptor {
+        label: Some("Index Buffer"),
+        size: (size_of::<u16>() as BufferAddress) * 256 * wgpu::COPY_BUFFER_ALIGNMENT,
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    };
+    device.create_buffer(&desc)
+}
+
+fn create_uniform_buffer(device: &wgpu::Device, initial: Uniform) -> wgpu::Buffer {
+    let desc = wgpu::util::BufferInitDescriptor {
+        label: Some("Uniform Buffer"),
+        contents: bytemuck::bytes_of(&initial),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    };
+    device.create_buffer_init(&desc)
 }

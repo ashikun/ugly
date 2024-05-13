@@ -1,5 +1,11 @@
+struct Uniform {
+    screen_size: vec2<i32>,
+};
+
+@group(0) @binding(0) var<uniform> uni: Uniform;
+
 struct VertexInput {
-    @location(0) position: vec2<f32>,
+    @location(0) position: vec2<i32>,
     @location(1) colour: vec4<f32>,
 }
 
@@ -11,7 +17,20 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = vec4<f32>(in.position, 0, 1);
+
+    var scr = vec2<f32>(uni.screen_size);
+    var pos = vec2<f32>(in.position);
+
+    // Normalise to (0.0, 2.0)
+    pos = (pos / (scr * vec2<f32>(0.5)));
+
+    // Shift to (-1.0, 1.0)
+    pos = pos - vec2<f32>(1.0);
+
+    // Invert Y coordinates
+    pos = pos * vec2<f32>(1.0, -1.0);
+
+    out.clip_position = vec4<f32>(pos, 0, 1);
     out.colour = srgb_conv(in.colour);
     return out;
 }
