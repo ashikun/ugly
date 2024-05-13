@@ -38,16 +38,14 @@ pub struct Renderer<
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
 > {
-    pub bg: Bg::Id,
-    pub commands: Vec<Command>,
-    pub core: Core<'a>,
-    pub fonts: Font,
-    pub metrics: Font::MetricsMap,
-    pub palette: colour::Palette<Fg, Bg>,
-}
+    bg: colour::Definition,
+    fonts: Font,
+    metrics: Font::MetricsMap,
+    palette: colour::Palette<Fg, Bg>,
 
-pub enum Command {
-    Rect(crate::metrics::Rect, colour::Definition),
+    pub core: Core<'a>,
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
 }
 
 impl<
@@ -67,21 +65,60 @@ impl<
 
     fn fill(&mut self, rect: Rect, colour: Bg::Id) -> Result<()> {
         let colour = self.lookup_bg(colour);
-        self.commands.push(Command::Rect(rect, colour));
+
+        let Point { x: x1, y: y1 } = rect.anchor(Anchor::TOP_LEFT);
+        let Point { x: x2, y: y2 } = rect.anchor(Anchor::BOTTOM_RIGHT);
+
+        // TODO: safely cast or drop length to 16
+        let x1 = self.convert_x(x1);
+        let x2 = self.convert_x(x2);
+        let y1 = self.convert_y(y1);
+        let y2 = self.convert_y(y2);
+
+        // TODO: sRGB conversion
+        let colour = [
+            f32::from(colour.r),
+            f32::from(colour.g),
+            f32::from(colour.b),
+            f32::from(colour.a),
+        ];
+
+        let base = self.vertices.len() as u16;
+        self.vertices.extend([
+            Vertex {
+                colour,
+                position: [x1, y1],
+            },
+            Vertex {
+                colour,
+                position: [x2, y1],
+            },
+            Vertex {
+                colour,
+                position: [x2, y2],
+            },
+            Vertex {
+                colour,
+                position: [x1, y2],
+            },
+        ]);
+
+        self.indices
+            .extend([0, 1, 2, 0, 2, 3].iter().map(|x| x + base));
+
         Ok(())
     }
 
     fn clear(&mut self, colour: Bg::Id) -> Result<()> {
-        self.bg = colour;
+        self.bg = self.lookup_bg(colour);
         Ok(())
     }
 
     fn present(&mut self) {
-        let commands = std::mem::take(&mut self.commands);
-        let bg_colour = self.lookup_bg(self.bg);
+        let vertices = std::mem::take(&mut self.vertices);
+        let indices = std::mem::take(&mut self.indices);
 
-        // TODO: Result
-        self.core.render(commands, bg_colour);
+        self.core.render(self.bg, &vertices, &indices);
     }
 }
 
@@ -92,6 +129,47 @@ impl<
         Bg: resource::Map<colour::Definition>,
     > Renderer<'a, Font, Fg, Bg>
 {
+    /// Constructs a new `wgpu` renderer.
+    ///
+    /// # Errors
+    ///
+    /// Fails if we can't load font metrics.
+    pub fn new(fonts: Font, palette: colour::Palette<Fg, Bg>, core: Core<'a>) -> Result<Self> {
+        let metrics = fonts.load_metrics()?;
+
+        let result = Self {
+            bg: Default::default(),
+            fonts,
+            metrics,
+            palette,
+            core,
+            vertices: vec![],
+            indices: vec![],
+        };
+
+        Ok(result)
+    }
+
+    fn convert_x(&self, x: crate::metrics::Length) -> f32 {
+        // TODO: move this to the shader
+        let w = f64::from(self.core.size.width);
+        let x = f64::from(x);
+
+        let x = (x / (w * 0.5)) - 1.0;
+
+        x as f32
+    }
+
+    fn convert_y(&self, y: crate::metrics::Length) -> f32 {
+        // TODO: move this to the shader
+        let h = f64::from(self.core.size.height);
+        let y = f64::from(y);
+
+        let y = (y / (h * 0.5)) - 1.0;
+
+        y as f32
+    }
+
     /// Looks up a background colour.
     fn lookup_bg(&self, id: Bg::Id) -> colour::Definition {
         *self.palette.bg.get(id)
@@ -242,61 +320,11 @@ impl<'a> Core<'a> {
         })
     }
 
-    fn render(&self, commands: Vec<Command>, bg_colour: colour::Definition) {
-        // TODO: result
-
-        let mut vertices = vec![];
-        let mut indices: Vec<u16> = vec![];
-
-        for command in commands {
-            match command {
-                Command::Rect(rect, colour) => {
-                    let Point { x: x1, y: y1 } = rect.anchor(Anchor::TOP_LEFT);
-                    let Point { x: x2, y: y2 } = rect.anchor(Anchor::BOTTOM_RIGHT);
-
-                    // TODO: safely cast or drop length to 16
-                    let x1 = self.convert_x(x1);
-                    let x2 = self.convert_x(x2);
-                    let y1 = self.convert_y(y1);
-                    let y2 = self.convert_y(y2);
-
-                    // TODO: sRGB conversion
-                    let colour = [
-                        f32::from(colour.r),
-                        f32::from(colour.g),
-                        f32::from(colour.b),
-                        f32::from(colour.a),
-                    ];
-
-                    let base = vertices.len() as u16;
-                    vertices.extend([
-                        Vertex {
-                            colour,
-                            position: [x1, y1],
-                        },
-                        Vertex {
-                            colour,
-                            position: [x2, y1],
-                        },
-                        Vertex {
-                            colour,
-                            position: [x2, y2],
-                        },
-                        Vertex {
-                            colour,
-                            position: [x1, y2],
-                        },
-                    ]);
-
-                    indices.extend([0, 1, 2, 0, 2, 3].iter().map(|x| x + base));
-                }
-            }
-        }
-
+    pub fn render(&self, bg: colour::Definition, vertices: &[Vertex], indices: &[u16]) {
         self.queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(vertices));
         self.queue
-            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices));
+            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(indices));
 
         let output = self.surface.get_current_texture().unwrap();
         let view = output
@@ -314,7 +342,7 @@ impl<'a> Core<'a> {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(bg_colour.into()),
+                        load: wgpu::LoadOp::Clear(bg.into()),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -332,26 +360,6 @@ impl<'a> Core<'a> {
         self.queue.submit(std::iter::once(encoder.finish()));
 
         output.present();
-    }
-
-    fn convert_x(&self, x: crate::metrics::Length) -> f32 {
-        // TODO: move this to the shader
-        let w = f64::from(self.size.width);
-        let x = f64::from(x);
-
-        let x = (x / (w * 0.5)) - 1.0;
-
-        x as f32
-    }
-
-    fn convert_y(&self, y: crate::metrics::Length) -> f32 {
-        // TODO: move this to the shader
-        let h = f64::from(self.size.height);
-        let y = f64::from(y);
-
-        let y = (y / (h * 0.5)) - 1.0;
-
-        y as f32
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {

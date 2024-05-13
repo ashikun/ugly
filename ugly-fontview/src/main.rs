@@ -41,7 +41,6 @@ impl ApplicationHandler for App {
         let window = event_loop.create_window(attributes).unwrap();
 
         let fonts = get_fonts();
-        let metrics = font::Map::load_metrics(&fonts).unwrap();
 
         let palette = ugly::colour::Palette {
             fg: ugly::colour::EGA,
@@ -52,14 +51,7 @@ impl ApplicationHandler for App {
             window,
             renderer_builder: |w| {
                 let core = Core::new(w).block_on().unwrap();
-                ugly::backends::wgpu::Renderer {
-                    bg: ugly::colour::ega::Id::Dark(ugly::colour::ega::BaseId::Black),
-                    commands: vec![],
-                    core,
-                    fonts,
-                    metrics,
-                    palette,
-                }
+                ugly::backends::wgpu::Renderer::new(fonts, palette, core).unwrap()
             },
         }
         .build();
