@@ -6,32 +6,35 @@ use crate::{
     resource, Result,
 };
 
-pub struct Renderer<
-    'a,
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<colour::Definition>,
-> {
+#[ouroboros::self_referencing]
+pub struct Renderer<'a, Font, Fg, Bg>
+where
+    Font: font::Map + 'a,
+    Fg: resource::Map<colour::Definition> + 'a,
+    Bg: resource::Map<colour::Definition> + 'a,
+{
     bg: colour::Definition,
-    fonts: Font,
-    metrics: Font::MetricsMap,
-    palette: colour::Palette<Fg, Bg>,
+
+    resources: resource::Set<Font, Fg, Bg>,
 
     pub core: Core<'a>,
+
+    #[covariant]
+    #[borrows(resources)]
+    font_manager: font::Manager<'this, Font, Fg, vertex::Material<()>>,
 
     current_index: vertex::Index,
     shapes: Vec<vertex::Shape>,
 }
 
-impl<
-        'a,
-        Font: font::Map,
-        Fg: resource::Map<colour::Definition>,
-        Bg: resource::Map<colour::Definition>,
-    > crate::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg>
+impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg>
+where
+    Font: font::Map + 'a,
+    Fg: resource::Map<colour::Definition> + 'a,
+    Bg: resource::Map<colour::Definition> + 'a,
 {
     fn font_metrics(&self) -> &Font::MetricsMap {
-        &self.metrics
+        &self.borrow_resources().metrics
     }
 
     fn write(
@@ -48,7 +51,7 @@ impl<
 
         let material = vertex::Material {
             colour: self.lookup_bg(colour),
-            texture: self.core.null_texture(),
+            texture: self.borrow_core().null_texture(),
             dimensions: tex_rect,
         };
 
@@ -61,61 +64,55 @@ impl<
         /* We clear at the beginning of every rendering cycle anyway, so
          * 'clear' is tantamount to changing the colour we clear to.
          */
-        self.bg = self.lookup_bg(colour);
+        let new_bg = self.lookup_bg(colour);
+        self.with_bg_mut(|bg| *bg = new_bg);
 
         Ok(())
     }
 
     fn present(&mut self) {
-        let shapes = std::mem::take(&mut self.shapes);
-        self.current_index = 0;
+        let shapes = self.with_shapes_mut(std::mem::take);
+        self.with_current_index_mut(|ci| *ci = 0);
 
-        self.core.render(self.bg, &shapes);
+        self.borrow_core().render(*self.borrow_bg(), &shapes);
     }
 }
 
-impl<
-        'a,
-        Font: font::Map,
-        Fg: resource::Map<colour::Definition>,
-        Bg: resource::Map<colour::Definition>,
-    > Renderer<'a, Font, Fg, Bg>
+impl<'a, Font, Fg, Bg> Renderer<'a, Font, Fg, Bg>
+where
+    Font: font::Map,
+    Fg: resource::Map<colour::Definition>,
+    Bg: resource::Map<colour::Definition>,
 {
     /// Constructs a new `wgpu` renderer.
-    ///
-    /// # Errors
-    ///
-    /// Fails if we can't load font metrics.
-    pub fn new(fonts: Font, palette: colour::Palette<Fg, Bg>, core: Core<'a>) -> Result<Self> {
-        let metrics = fonts.load_metrics()?;
-
-        let result = Self {
-            bg: colour::Definition::default(),
-            fonts,
-            metrics,
-            palette,
+    pub fn from_core(core: Core<'a>, resources: resource::Set<Font, Fg, Bg>) -> Self {
+        RendererBuilder {
+            resources,
             core,
+            bg: colour::Definition::default(),
             current_index: 0,
             shapes: vec![],
-        };
-
-        Ok(result)
+            font_manager_builder: |res| {
+                font::Manager::new(&res.fonts, &res.metrics, &res.palette.fg)
+            },
+        }
+        .build()
     }
 
     fn push_shape(&mut self, shape_fn: impl FnOnce(vertex::Index) -> vertex::Shape) {
-        let shape = shape_fn(self.current_index);
+        let shape = shape_fn(*self.borrow_current_index());
 
-        self.current_index += shape.num_vertices();
-        self.shapes.push(shape);
+        self.with_current_index_mut(|ci| *ci += shape.num_vertices());
+        self.with_shapes_mut(|shapes| shapes.push(shape));
     }
 
     /// Looks up a background colour.
     fn lookup_bg(&self, id: Bg::Id) -> colour::Definition {
-        *self.palette.bg.get(id)
+        *self.borrow_resources().palette.bg.get(id)
     }
 
     /// Looks up a foreground colour.
     fn lookup_fg(&self, id: Fg::Id) -> colour::Definition {
-        *self.palette.fg.get(id)
+        *self.borrow_resources().palette.fg.get(id)
     }
 }

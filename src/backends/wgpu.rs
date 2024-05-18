@@ -2,12 +2,18 @@ use crate::colour;
 
 mod buffer;
 mod core;
+mod error;
+mod font;
 mod init;
 mod render;
 mod texture;
 mod vertex;
 
-pub use {core::Core, render::Renderer};
+pub use {
+    core::Core,
+    error::{Error, Result},
+    render::Renderer,
+};
 
 /// Losslessly converts an `ugly` colour to a (linear) `wgpu` one.
 impl From<colour::Definition> for wgpu::Color {

@@ -1,13 +1,13 @@
 //! High-level initialisation functions for `wgpu`.
 //!
 //! Initialisation functions for buffers belong in the `buffer` module.
-use crate::Error;
+use super::{Error, Result};
 
 /// Creates a `wgpu` adapter.
 pub(super) async fn create_adapter<'w>(
     instance: wgpu::Instance,
     surface: &wgpu::Surface<'w>,
-) -> crate::Result<wgpu::Adapter> {
+) -> Result<wgpu::Adapter> {
     let adapter_options = wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         compatible_surface: Some(surface),
@@ -16,7 +16,7 @@ pub(super) async fn create_adapter<'w>(
     let adapter = instance
         .request_adapter(&adapter_options)
         .await
-        .ok_or_else(|| Error::Backend("no adapter available".to_string()))?;
+        .ok_or_else(|| Error::NoAdapterAvailable)?;
 
     Ok(adapter)
 }

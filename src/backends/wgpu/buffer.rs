@@ -1,6 +1,5 @@
 //! Code for setting up the buffers for the `wgpu` renderer.
-use crate::backends;
-use crate::backends::wgpu::vertex::Vertex;
+use super::vertex::Vertex;
 use wgpu::util::DeviceExt;
 
 /// Creates the vertex buffer.

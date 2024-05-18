@@ -1,5 +1,5 @@
 //! Texture creation and bookkeeping facilities.
-use crate::{Error, Result};
+use super::{Error, Result};
 
 /// Loads an image as a texture.
 ///
@@ -15,8 +15,8 @@ pub(super) fn load(
     queue: &wgpu::Queue,
     path: impl AsRef<std::path::Path>,
 ) -> Result<wgpu::Texture> {
-    let reader = image::io::Reader::open(path).map_err(|e| Error::Backend(e.to_string()))?;
-    let image = reader.decode().map_err(|e| Error::Backend(e.to_string()))?;
+    let reader = image::io::Reader::open(path)?;
+    let image = reader.decode()?;
     let rgba = image.to_rgba8();
 
     let (width, height) = rgba.dimensions();

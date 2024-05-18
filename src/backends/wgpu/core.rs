@@ -1,11 +1,10 @@
 //! The core of the `wgpu` rendering backend.
-use crate::{
-    backends::wgpu::{
-        buffer, init, texture,
-        vertex::{Shape, Vertex},
-    },
-    colour, Error, Result,
+use super::{
+    buffer, init, texture,
+    vertex::{Shape, Vertex},
+    Error, Result,
 };
+use crate::colour;
 use itertools::Itertools;
 use std::{path::Path, rc::Rc};
 
@@ -36,9 +35,7 @@ impl<'a> Core<'a> {
     /// Fails if any part of the wgpu bring-up fails.
     pub async fn new(window: &'a winit::window::Window) -> Result<Self> {
         let instance = wgpu::Instance::default();
-        let surface = instance
-            .create_surface(window)
-            .map_err(|e| Error::Backend(e.to_string()))?;
+        let surface = instance.create_surface(window)?;
 
         let adapter = init::create_adapter(instance, &surface).await?;
 
@@ -47,10 +44,7 @@ impl<'a> Core<'a> {
             required_features: wgpu::Features::empty(),
             required_limits: wgpu::Limits::default(),
         };
-        let (device, queue) = adapter
-            .request_device(&device_desc, None)
-            .await
-            .map_err(|e| Error::Backend(e.to_string()))?;
+        let (device, queue) = adapter.request_device(&device_desc, None).await?;
 
         let size = window.inner_size();
 
@@ -165,7 +159,7 @@ impl<'a> Core<'a> {
         self.null_texture.clone()
     }
 
-    pub(super) fn load_image(&self, path: impl AsRef<Path>) -> crate::Result<Rc<wgpu::Texture>> {
+    pub(super) fn load_image(&self, path: impl AsRef<Path>) -> Result<Rc<wgpu::Texture>> {
         let tex = texture::load(&self.device, &self.queue, path)?;
 
         Ok(Rc::new(tex))

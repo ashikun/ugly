@@ -59,46 +59,35 @@ pub trait Loader<'l> {
 }
 
 /// A backend-agnostic, cached font manager.
-pub struct Manager<'a, Font, Fg, Load>
+pub struct Manager<'a, Font, Fg, Data>
 where
     Font: super::Map,
-    Load: Loader<'a>,
     Fg: Map<colour::Definition>,
 {
     /// Mapping from specs to already-cached font indices.
     slot_mapping: Font::IndexMap,
     /// The cache of already-loaded fonts.
-    cache: Vec<Load::Data>,
-
-    /// Loader for font data from PNG files.
-    loader: &'a Load,
+    cache: Vec<Data>,
 
     /// The font path set.
     font_set: &'a Font,
     /// The font metrics set.
-    metrics_set: Font::MetricsMap,
+    metrics_set: &'a Font::MetricsMap,
     /// The foreground colour set, used for setting up font colours.
     colour_set: &'a Fg,
 }
 
-impl<'a, Font, Fg, Load> Manager<'a, Font, Fg, Load>
+impl<'a, Font, Fg, Data> Manager<'a, Font, Fg, Data>
 where
     Font: super::Map,
     Fg: Map<colour::Definition>,
-    Load: Loader<'a>,
     Fg::Id: Eq + Hash,
     Font::Id: Eq + Hash,
 {
     /// Creates a font manager with the given texture creator and config maps.
     #[must_use]
-    pub fn new(
-        loader: &'a Load,
-        font_set: &'a Font,
-        metrics_set: Font::MetricsMap,
-        colour_set: &'a Fg,
-    ) -> Self {
+    pub fn new(font_set: &'a Font, metrics_set: &'a Font::MetricsMap, colour_set: &'a Fg) -> Self {
         Self {
-            loader,
             cache: Vec::new(),
             slot_mapping: Font::IndexMap::default(),
             font_set,
@@ -117,7 +106,11 @@ where
     /// # Errors
     ///
     /// Returns an error if the spec does not point to a font.
-    pub fn data(&mut self, spec: &Spec<Font::Id, Fg::Id>) -> Result<&mut Load::Data> {
+    pub fn data(
+        &mut self,
+        spec: &Spec<Font::Id, Fg::Id>,
+        loader: &'a impl Loader<'a, Data = Data>,
+    ) -> Result<&mut Data> {
         let id = spec.id;
         let mut index: Index = *self.slot_mapping.get(id);
         if index.is_unset() {
@@ -125,7 +118,7 @@ where
             index = Index(self.cache.len());
 
             let path = &self.font_set.get(id).texture_path();
-            let tex = self.loader.load(path)?;
+            let tex = loader.load(path)?;
             self.cache.push(tex);
 
             // TODO(@MattWindsor91): index usize::MAX should be off limits; we should raise an error
@@ -133,8 +126,7 @@ where
         }
 
         let tex = &mut self.cache[index.0];
-        self.loader
-            .colourise(tex, *self.colour_set.get(spec.colour));
+        loader.colourise(tex, *self.colour_set.get(spec.colour));
         Ok(tex)
     }
 }

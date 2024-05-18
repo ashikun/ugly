@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pollster::FutureExt;
+use futures::future::FutureExt;
 use ugly::backends::wgpu::Core;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -13,7 +13,6 @@ use winit::{
 };
 
 use ugly::metrics::Rect;
-use ugly::resource::Map;
 use ugly::ui::{Layoutable, Renderable};
 use ugly::{font, Renderer};
 
@@ -40,21 +39,22 @@ impl ApplicationHandler for App {
 
         let window = event_loop.create_window(attributes).unwrap();
 
-        let fonts = get_fonts();
+        let resources =
+            ugly::resource::Set::new(get_fonts(), ugly::colour::EGA, ugly::colour::EGA).unwrap();
 
-        let palette = ugly::colour::Palette {
-            fg: ugly::colour::EGA,
-            bg: ugly::colour::EGA,
-        };
-
-        let ctx = ContextBuilder {
+        let ctx_builder = ContextAsyncTryBuilder {
             window,
             renderer_builder: |w| {
-                let core = Core::new(w).block_on().unwrap();
-                ugly::backends::wgpu::Renderer::new(fonts, palette, core).unwrap()
+                Core::new(w)
+                    .map(|core| -> anyhow::Result<_> {
+                        let core = core?;
+                        Ok(ugly::backends::wgpu::Renderer::from_core(core, resources))
+                    })
+                    .boxed()
             },
-        }
-        .build();
+        };
+
+        let ctx = pollster::block_on(ctx_builder.try_build()).unwrap();
 
         ctx.borrow_window().request_redraw();
 
@@ -72,7 +72,7 @@ impl ApplicationHandler for App {
                     return;
                 };
 
-                ctx.with_renderer_mut(|r| r.core.resize(new_size));
+                ctx.with_renderer_mut(|r| r.with_core_mut(|c| c.resize(new_size)));
             }
             WindowEvent::RedrawRequested => {
                 // Redraw the application.

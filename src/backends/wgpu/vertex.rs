@@ -120,8 +120,8 @@ pub(crate) type Index = u16;
 // TODO: make indices u32
 
 /// A bundle of data about texturing and colouring for a [Shape].
-pub(super) struct Material<D> {
-    pub(super) colour: colour::Definition,
-    pub(super) texture: Rc<wgpu::Texture>,
-    pub(super) dimensions: D,
+pub struct Material<D> {
+    pub colour: colour::Definition,
+    pub texture: Rc<wgpu::Texture>,
+    pub dimensions: D,
 }

@@ -1,5 +1,6 @@
-//! The [Map] trait for resource maps.
+//! The [Map] trait for resource maps, and similar helpers.
 
+use crate::{colour, font};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -67,5 +68,44 @@ impl<K: Eq + Hash, V> DefaultingHashMap<K, V> {
     /// Gets the underlying map's borrowing iterator.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.map.iter()
+    }
+}
+
+/// A bundle of all resources used in an instance of `ugly`.
+pub struct Set<Font, Fg, Bg>
+where
+    Font: font::Map,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
+{
+    /// The font map.
+    pub fonts: Font,
+    /// The font metrics map.
+    pub metrics: Font::MetricsMap,
+    /// The colour palette.
+    pub palette: colour::Palette<Fg, Bg>,
+}
+
+impl<Font, Fg, Bg> Set<Font, Fg, Bg>
+where
+    Font: font::Map,
+    Fg: Map<colour::Definition>,
+    Bg: Map<colour::Definition>,
+{
+    /// Constructs a resource set from its constituent components.
+    ///
+    /// # Errors
+    ///
+    /// Fails if we can't get font metrics.
+    pub fn new(fonts: Font, fg: Fg, bg: Bg) -> super::Result<Self> {
+        let metrics = fonts.load_metrics()?;
+
+        let result = Self {
+            fonts,
+            metrics,
+            palette: colour::Palette { fg, bg },
+        };
+
+        Ok(result)
     }
 }
