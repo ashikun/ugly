@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pollster::FutureExt;
-use ugly::backends::wgpu::render::Core;
+use ugly::backends::wgpu::Core;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;

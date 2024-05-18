@@ -1,8 +1,13 @@
-pub mod render;
-
 use crate::colour;
 
-pub use render::Renderer;
+mod buffer;
+mod core;
+mod init;
+mod render;
+mod texture;
+mod vertex;
+
+pub use {core::Core, render::Renderer};
 
 /// Losslessly converts an `ugly` colour to a (linear) `wgpu` one.
 impl From<colour::Definition> for wgpu::Color {
