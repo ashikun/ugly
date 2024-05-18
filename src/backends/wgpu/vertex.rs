@@ -1,6 +1,9 @@
 //! The definition of a (2D) vertex in the renderer, and shapes made out of them.
-use crate::metrics::{Anchor, Rect};
-use crate::{colour, metrics};
+use super::texture::Texture;
+use crate::{
+    colour,
+    metrics::{self, Anchor, Rect},
+};
 use itertools::Itertools;
 use std::rc::Rc;
 
@@ -53,7 +56,7 @@ impl Vertex {
 pub(super) struct Shape {
     vertices: Vec<Vertex>,
     indices: Vec<Index>,
-    texture: Rc<wgpu::Texture>,
+    texture: Rc<Texture>,
 }
 
 impl Shape {
@@ -109,7 +112,7 @@ impl Shape {
     }
 
     /// Borrows the shape's texture.
-    pub fn texture(&self) -> &wgpu::Texture {
+    pub fn texture(&self) -> &Texture {
         &self.texture
     }
 }
@@ -122,6 +125,6 @@ pub(crate) type Index = u16;
 /// A bundle of data about texturing and colouring for a [Shape].
 pub struct Material<D> {
     pub colour: colour::Definition,
-    pub texture: Rc<wgpu::Texture>,
+    pub texture: Rc<Texture>,
     pub dimensions: D,
 }

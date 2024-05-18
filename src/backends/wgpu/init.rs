@@ -1,7 +1,7 @@
 //! High-level initialisation functions for `wgpu`.
 //!
 //! Initialisation functions for buffers belong in the `buffer` module.
-use super::{Error, Result};
+use super::{vertex::Vertex, Error, Result};
 
 /// Creates a `wgpu` adapter.
 pub(super) async fn create_adapter<'w>(
@@ -64,6 +64,31 @@ pub(super) fn create_uniform_bind_group_layout(device: &wgpu::Device) -> wgpu::B
     device.create_bind_group_layout(&desc)
 }
 
+pub(super) fn create_texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    let desc = wgpu::BindGroupLayoutDescriptor {
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    multisampled: false,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+        label: Some("texture_bind_group_layout"),
+    };
+    device.create_bind_group_layout(&desc)
+}
+
 /// Creates the bind group layout for the renderer's uniform buffer.
 pub(super) fn create_uniform_bind_group(
     device: &wgpu::Device,
@@ -79,4 +104,51 @@ pub(super) fn create_uniform_bind_group(
         label: Some("uniform_bind_group"),
     };
     device.create_bind_group(&uniform_bind_group_desc)
+}
+
+pub(super) fn create_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    surface_config: &wgpu::SurfaceConfiguration,
+) -> wgpu::RenderPipeline {
+    let fragment_state_targets = [Some(wgpu::ColorTargetState {
+        format: surface_config.format,
+        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+        write_mask: wgpu::ColorWrites::ALL,
+    })];
+    let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+    let pipeline_desc = wgpu::RenderPipelineDescriptor {
+        label: Some("Render Pipeline"),
+        layout: Some(&layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: &[Vertex::desc()],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &fragment_state_targets,
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+        multiview: None,
+    };
+    let pipeline = device.create_render_pipeline(&pipeline_desc);
+    pipeline
 }

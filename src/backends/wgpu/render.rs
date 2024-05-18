@@ -71,10 +71,11 @@ where
     }
 
     fn present(&mut self) {
-        let shapes = self.with_shapes_mut(std::mem::take);
-        self.with_current_index_mut(|ci| *ci = 0);
-
-        self.borrow_core().render(*self.borrow_bg(), &shapes);
+        self.with_mut(|f| {
+            let shapes = std::mem::take(f.shapes);
+            *f.current_index = 0;
+            f.core.render(*f.bg, &shapes)
+        });
     }
 }
 

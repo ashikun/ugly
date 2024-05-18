@@ -1,8 +1,9 @@
 //! The core of the `wgpu` rendering backend.
 use super::{
-    buffer, init, texture,
-    vertex::{Shape, Vertex},
-    Error, Result,
+    buffer, init,
+    texture::{self, Texture},
+    vertex::Shape,
+    Result,
 };
 use crate::colour;
 use itertools::Itertools;
@@ -21,7 +22,7 @@ pub struct Core<'a> {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
 
-    null_texture: Rc<wgpu::Texture>,
+    textures: texture::Manager,
 
     size: winit::dpi::PhysicalSize<u32>,
     uniform: buffer::Uniform,
@@ -63,60 +64,15 @@ impl<'a> Core<'a> {
         let uniform_bind_group =
             init::create_uniform_bind_group(&device, &uniform_buffer, &uniform_bind_group_layout);
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        let textures = texture::Manager::new(&device);
+
         let pipeline_layout_desc = wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[&uniform_bind_group_layout],
             push_constant_ranges: &[],
         };
         let pipeline_layout = device.create_pipeline_layout(&pipeline_layout_desc);
-        let fragment_state_targets = [Some(wgpu::ColorTargetState {
-            format: config.format,
-            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-            write_mask: wgpu::ColorWrites::ALL,
-        })];
-        let pipeline_desc = wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &fragment_state_targets,
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        };
-        let pipeline = device.create_render_pipeline(&pipeline_desc);
-
-        let null_texture = Rc::new(texture::create(
-            &device,
-            wgpu::Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-        ));
+        let pipeline = init::create_pipeline(&device, &pipeline_layout, &config);
 
         Ok(Self {
             surface,
@@ -129,7 +85,7 @@ impl<'a> Core<'a> {
             uniform,
             uniform_buffer,
             uniform_bind_group,
-            null_texture,
+            textures,
             size,
         })
     }
@@ -155,12 +111,14 @@ impl<'a> Core<'a> {
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniform));
     }
 
-    pub(super) fn null_texture(&self) -> Rc<wgpu::Texture> {
-        self.null_texture.clone()
+    pub(super) fn null_texture(&self) -> Rc<Texture> {
+        self.textures.null_texture.clone()
     }
 
-    pub(super) fn load_image(&self, path: impl AsRef<Path>) -> Result<Rc<wgpu::Texture>> {
-        let tex = texture::load(&self.device, &self.queue, path)?;
+    pub(super) fn load_image(&mut self, path: impl AsRef<Path>) -> Result<Rc<Texture>> {
+        let tex = Texture::load(&self.device, &self.queue, path)?;
+
+        self.textures.register_bind_group(&self.device, &tex);
 
         Ok(Rc::new(tex))
     }
@@ -199,8 +157,19 @@ impl<'a> Core<'a> {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
             let mut cur_index: u32 = 0;
+            let mut cur_texture_id: Option<wgpu::Id<wgpu::Texture>> = None;
 
             for shape in shapes {
+                let new_texture = shape.texture();
+                let new_texture_id = new_texture.texture.global_id();
+                let old_texture_id = cur_texture_id.replace(new_texture_id);
+                if old_texture_id != cur_texture_id {
+                    // The texture has changed since the last shape.
+
+                    let texture_bind_group = self.textures.get_bind_group(new_texture).unwrap();
+                    render_pass.set_bind_group(1, texture_bind_group, &[]);
+                }
+
                 let next_index = cur_index + shape.num_indices() + 1;
 
                 render_pass.draw_indexed(cur_index..next_index, 0, 0..1);

@@ -7,7 +7,7 @@ use std::rc::Rc;
 impl<'l> font::manager::Loader<'l> for super::Core<'l> {
     type Data = vertex::Material<()>;
 
-    fn load(&'l self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data> {
+    fn load(&'l mut self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data> {
         let texture = self.load_image(path).map_err(map_font_err)?;
 
         let data = vertex::Material {
