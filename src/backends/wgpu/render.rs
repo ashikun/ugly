@@ -1,7 +1,9 @@
 //! Rendering using `wgpu`.
-use std::mem::size_of;
+use itertools::Itertools;
+use std::path::Path;
+use std::rc::Rc;
 use wgpu::util::DeviceExt;
-use wgpu::{BufferAddress, IndexFormat, PipelineCompilationOptions};
+use wgpu::{IndexFormat, Instance, PipelineCompilationOptions};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -12,13 +14,17 @@ use crate::{colour, font, resource, Error, Result};
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    position: [i32; 2],
+    /// The position, in screen coordinates.
+    screen_xy: [i32; 2],
+    /// The texture coordinates, in terms of the texture itself.
+    texture_xy: [i32; 2],
+    /// The colour, as (0-255) linear RGBA.
     colour: [f32; 4],
 }
 
 impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Sint32x2, 1 => Float32x4];
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Sint32x2, 1 => Sint32x2, 2 => Float32x4];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
@@ -27,6 +33,19 @@ impl Vertex {
             array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
+        }
+    }
+
+    fn new(screen_xy: Point, texture_xy: Point, colour: colour::Definition) -> Self {
+        Self {
+            screen_xy: [screen_xy.x, screen_xy.y],
+            texture_xy: [texture_xy.x, texture_xy.y],
+            colour: [
+                colour.r as f32,
+                colour.g as f32,
+                colour.b as f32,
+                colour.a as f32,
+            ],
         }
     }
 }
@@ -52,8 +71,53 @@ pub struct Renderer<
     palette: colour::Palette<Fg, Bg>,
 
     pub core: Core<'a>,
+
+    current_index: u16,
+    shapes: Vec<Shape>,
+}
+
+/// A low level encoding of a shape:
+/// a pre-calculated list of vertices and indices with a particular texture.
+#[derive(Clone, Debug)]
+struct Shape {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
+    texture: Rc<wgpu::Texture>,
+}
+
+impl Shape {
+    fn quad(first_index: u16, screen_rect: Rect, material: Material<Rect>) -> Self {
+        let anchors = [
+            Anchor::BOTTOM_LEFT,
+            Anchor::BOTTOM_RIGHT,
+            Anchor::TOP_RIGHT,
+            Anchor::TOP_LEFT,
+        ];
+
+        let vertices: Vec<Vertex> = anchors
+            .into_iter()
+            .map(|anchor| {
+                Vertex::new(
+                    screen_rect.anchor(anchor),
+                    material.dimensions.anchor(anchor),
+                    material.colour,
+                )
+            })
+            .collect();
+        let indices: Vec<u16> = [0, 1, 2, 0, 2, 3].iter().map(|x| x + first_index).collect();
+
+        Shape {
+            vertices,
+            indices,
+            texture: material.texture,
+        }
+    }
+}
+
+struct Material<D> {
+    colour: colour::Definition,
+    texture: Rc<wgpu::Texture>,
+    dimensions: D,
 }
 
 impl<
@@ -72,55 +136,34 @@ impl<
     }
 
     fn fill(&mut self, rect: Rect, colour: Bg::Id) -> Result<()> {
-        let colour = self.lookup_bg(colour);
+        // Make a texture rect whose coordinates will always be negative
+        let tex_rect = Rect::new(-2, -2, 1, 1);
 
-        let Point { x: x1, y: y1 } = rect.anchor(Anchor::TOP_LEFT);
-        let Point { x: x2, y: y2 } = rect.anchor(Anchor::BOTTOM_RIGHT);
+        let material = Material {
+            colour: self.lookup_bg(colour),
+            texture: self.core.null_texture(),
+            dimensions: tex_rect,
+        };
 
-        // TODO: sRGB conversion
-        let colour = [
-            f32::from(colour.r),
-            f32::from(colour.g),
-            f32::from(colour.b),
-            f32::from(colour.a),
-        ];
-
-        let base = self.vertices.len() as u16;
-        self.vertices.extend([
-            Vertex {
-                colour,
-                position: [x1, y2],
-            },
-            Vertex {
-                colour,
-                position: [x2, y2],
-            },
-            Vertex {
-                colour,
-                position: [x2, y1],
-            },
-            Vertex {
-                colour,
-                position: [x1, y1],
-            },
-        ]);
-
-        self.indices
-            .extend([0, 1, 2, 0, 2, 3].iter().map(|x| x + base));
+        self.push_shape(|i| Shape::quad(i, rect, material));
 
         Ok(())
     }
 
     fn clear(&mut self, colour: Bg::Id) -> Result<()> {
+        /* We clear at the beginning of every rendering cycle anyway, so
+         * 'clear' is tantamount to changing the colour we clear to.
+         */
         self.bg = self.lookup_bg(colour);
+
         Ok(())
     }
 
     fn present(&mut self) {
-        let vertices = std::mem::take(&mut self.vertices);
-        let indices = std::mem::take(&mut self.indices);
+        let shapes = std::mem::take(&mut self.shapes);
+        self.current_index = 0;
 
-        self.core.render(self.bg, &vertices, &indices);
+        self.core.render(self.bg, &shapes);
     }
 }
 
@@ -145,11 +188,18 @@ impl<
             metrics,
             palette,
             core,
-            vertices: vec![],
-            indices: vec![],
+            current_index: 0,
+            shapes: vec![],
         };
 
         Ok(result)
+    }
+
+    fn push_shape(&mut self, shape_fn: impl FnOnce(u16) -> Shape) {
+        let shape = shape_fn(self.current_index);
+
+        self.current_index += shape.vertices.len() as u16;
+        self.shapes.push(shape);
     }
 
     /// Looks up a background colour.
@@ -176,6 +226,8 @@ pub struct Core<'a> {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
 
+    null_texture: Rc<wgpu::Texture>,
+
     size: PhysicalSize<u32>,
 }
 
@@ -191,15 +243,7 @@ impl<'a> Core<'a> {
             .create_surface(window)
             .map_err(|e| Error::Backend(e.to_string()))?;
 
-        let adapter_options = wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        };
-        let adapter = instance
-            .request_adapter(&adapter_options)
-            .await
-            .ok_or_else(|| Error::Backend("no adapter available".to_string()))?;
+        let adapter = create_adapter(instance, &surface).await?;
 
         let device_desc = wgpu::DeviceDescriptor {
             label: None,
@@ -296,6 +340,15 @@ impl<'a> Core<'a> {
         };
         let pipeline = device.create_render_pipeline(&pipeline_desc);
 
+        let null_texture = Rc::new(create_texture(
+            &device,
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+        ));
+
         Ok(Self {
             surface,
             device,
@@ -306,15 +359,50 @@ impl<'a> Core<'a> {
             index_buffer,
             uniform_buffer,
             uniform_bind_group,
+            null_texture,
             size,
         })
     }
 
-    pub fn render(&self, bg: colour::Definition, vertices: &[Vertex], indices: &[u16]) {
-        self.queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(vertices));
-        self.queue
-            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(indices));
+    pub fn null_texture(&self) -> Rc<wgpu::Texture> {
+        self.null_texture.clone()
+    }
+
+    pub fn load_image(&self, path: impl AsRef<Path>) -> Result<Rc<wgpu::Texture>> {
+        let reader = image::io::Reader::open(path).map_err(|e| Error::Backend(e.to_string()))?;
+        let image = reader.decode().map_err(|e| Error::Backend(e.to_string()))?;
+        let rgba = image.to_rgba8();
+
+        let (width, height) = rgba.dimensions();
+
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let texture = create_texture(&self.device, size);
+
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * width),
+                rows_per_image: Some(height),
+            },
+            size,
+        );
+
+        Ok(Rc::new(texture))
+    }
+
+    pub fn render(&self, bg: colour::Definition, shapes: &[Shape]) {
+        self.prepare_buffers(shapes);
 
         let output = self.surface.get_current_texture().unwrap();
         let view = output
@@ -345,12 +433,37 @@ impl<'a> Core<'a> {
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw_indexed(0..((indices.len() as u32) + 1), 0, 0..1);
+
+            let mut cur_index: u32 = 0;
+
+            for shape in shapes {
+                let next_index = cur_index + (shape.indices.len() as u32) + 1;
+
+                render_pass.draw_indexed(cur_index..next_index, 0, 0..1);
+
+                cur_index = next_index - 1;
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
 
         output.present();
+    }
+
+    fn prepare_buffers(&self, shapes: &[Shape]) {
+        let vertices = shapes
+            .iter()
+            .flat_map(|s| s.vertices.iter().copied())
+            .collect_vec();
+        let indices = shapes
+            .iter()
+            .flat_map(|s| s.indices.iter().copied())
+            .collect_vec();
+
+        self.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+        self.queue
+            .write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&indices));
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -369,6 +482,23 @@ impl<'a> Core<'a> {
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform));
     }
+}
+
+async fn create_adapter<'w>(
+    instance: Instance,
+    surface: &wgpu::Surface<'w>,
+) -> Result<wgpu::Adapter> {
+    let adapter_options = wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::default(),
+        compatible_surface: Some(surface),
+        force_fallback_adapter: false,
+    };
+    let adapter = instance
+        .request_adapter(&adapter_options)
+        .await
+        .ok_or_else(|| Error::Backend("no adapter available".to_string()))?;
+
+    Ok(adapter)
 }
 
 fn create_surface_config(
@@ -398,7 +528,9 @@ fn create_surface_config(
 fn create_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     let desc = wgpu::BufferDescriptor {
         label: Some("Vertex Buffer"),
-        size: (size_of::<Vertex>() as BufferAddress) * 256 * wgpu::COPY_BUFFER_ALIGNMENT,
+        size: (std::mem::size_of::<Vertex>() as wgpu::BufferAddress)
+            * 256
+            * wgpu::COPY_BUFFER_ALIGNMENT,
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     };
@@ -408,7 +540,9 @@ fn create_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
 fn create_index_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     let desc = wgpu::BufferDescriptor {
         label: Some("Index Buffer"),
-        size: (size_of::<u16>() as BufferAddress) * 256 * wgpu::COPY_BUFFER_ALIGNMENT,
+        size: (std::mem::size_of::<u16>() as wgpu::BufferAddress)
+            * 256
+            * wgpu::COPY_BUFFER_ALIGNMENT,
         usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     };
@@ -422,4 +556,18 @@ fn create_uniform_buffer(device: &wgpu::Device, initial: Uniform) -> wgpu::Buffe
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     };
     device.create_buffer_init(&desc)
+}
+
+fn create_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu::Texture {
+    let desc = wgpu::TextureDescriptor {
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        label: Some("image_texture"),
+        view_formats: &[],
+    };
+    device.create_texture(&desc)
 }
