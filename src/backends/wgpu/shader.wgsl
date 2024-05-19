@@ -29,20 +29,16 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-fn coord_conv(coord: vec2<i32>) -> vec4<f32> {
-    let can = vec2<f32>(uni.screen_size);
-    var pos = vec2<f32>(coord);
+/// Convert a screen coordinate (XY) to a clip-space coordinate (XYZW)
+fn coord_conv(in: vec2<i32>) -> vec4<f32> {
+    let screen = vec2<f32>(uni.screen_size);
 
-    // Normalise to (0.0, 2.0)
-    pos = (pos / (can * vec2<f32>(0.5)));
+    var out = vec2<f32>(in);
+    out.y   = (screen.y - 1) - out.y;     // Invert Y coordinates, keeping within (0..screen.y)
+    out    /= (screen * vec2<f32>(0.5));  // Normalise to (0.0, 2.0)
+    out    -= vec2<f32>(1.0);             // Shift to (-1.0, 1.0)
 
-    // Shift to (-1.0, 1.0)
-    pos = pos - vec2<f32>(1.0);
-
-    // Invert Y coordinates
-    pos = pos * vec2<f32>(1.0, -1.0);
-
-    return vec4<f32>(pos, 0.0, 1.0);
+    return vec4<f32>(out, 0.0, 1.0);
 }
 
 fn tex_coord_conv(in: vec2<i32>) -> vec2<f32> {
