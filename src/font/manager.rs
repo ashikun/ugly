@@ -4,11 +4,8 @@
 use std::{hash::Hash, path::Path};
 
 use super::{
-    super::{
-        colour,
-        resource::{Map, MutableMap},
-    },
-    Result, Spec,
+    super::resource::{Map, MutableMap},
+    Result,
 };
 
 /// An index for a loaded font in a [Manager].
@@ -40,9 +37,6 @@ impl Index {
 }
 
 /// Trait of objects that can load and manipulate font data.
-///
-/// The lifetime `'l` is the lifetime of the loader when loading, and will usually also become the
-/// lifetime of aspects of the `Data`.
 pub trait Loader {
     /// The type of font data loaded by this loader.
     type Data<'l>
@@ -58,10 +52,9 @@ pub trait Loader {
 }
 
 /// A backend-agnostic, cached font manager.
-pub struct Manager<'a, Font, Fg, Data>
+pub struct Manager<'a, Font, Data>
 where
     Font: super::Map,
-    Fg: Map<colour::Definition>,
 {
     /// Mapping from specs to already-cached font indices.
     slot_mapping: Font::IndexMap,
@@ -72,26 +65,21 @@ where
     font_set: &'a Font,
     /// The font metrics set.
     metrics_set: &'a Font::MetricsMap,
-    /// The foreground colour set, used for setting up font colours.
-    colour_set: &'a Fg,
 }
 
-impl<'a, Font, Fg, Data> Manager<'a, Font, Fg, Data>
+impl<'a, Font, Data> Manager<'a, Font, Data>
 where
     Font: super::Map,
-    Fg: Map<colour::Definition>,
-    Fg::Id: Eq + Hash,
     Font::Id: Eq + Hash,
 {
     /// Creates a font manager with the given texture creator and config maps.
     #[must_use]
-    pub fn new(font_set: &'a Font, metrics_set: &'a Font::MetricsMap, colour_set: &'a Fg) -> Self {
+    pub fn new(font_set: &'a Font, metrics_set: &'a Font::MetricsMap) -> Self {
         Self {
             cache: Vec::new(),
             slot_mapping: Font::IndexMap::default(),
             font_set,
             metrics_set,
-            colour_set,
         }
     }
 
@@ -107,10 +95,9 @@ where
     /// Returns an error if the spec does not point to a font.
     pub fn data<'b>(
         &'b mut self,
-        spec: &Spec<Font::Id, Fg::Id>,
+        id: Font::Id,
         loader: &'b mut impl Loader<Data<'b> = Data>,
     ) -> Result<&'b Data> {
-        let id = spec.id;
         let mut index: Index = *self.slot_mapping.get(id);
         if index.is_unset() {
             // This is where we're about to add a new index.

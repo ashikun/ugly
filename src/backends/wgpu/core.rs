@@ -165,7 +165,7 @@ impl<'a> Core<'a> {
 
             for (base_vertex, shape) in shapes {
                 let new_texture = shape.texture();
-                let new_texture_id = new_texture.texture.global_id();
+                let new_texture_id = new_texture.contents.global_id();
                 let old_texture_id = cur_texture_id.replace(new_texture_id);
                 if old_texture_id != cur_texture_id {
                     // The texture has changed since the last shape.

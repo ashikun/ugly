@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 /// A texture and its attached view.
 #[derive(Debug)]
-pub(super) struct Texture {
-    pub(super) texture: wgpu::Texture,
+pub struct Texture {
+    pub(super) contents: wgpu::Texture,
     pub(super) sampler: wgpu::Sampler,
     pub(super) view: wgpu::TextureView,
 }
@@ -41,7 +41,7 @@ impl Texture {
 
         queue.write_texture(
             wgpu::ImageCopyTexture {
-                texture: &texture.texture,
+                texture: &texture.contents,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
@@ -74,10 +74,10 @@ impl Texture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let sampler = create_sampler(&device);
+        let sampler = create_sampler(device);
 
         Self {
-            texture,
+            contents: texture,
             view,
             sampler,
         }
@@ -93,9 +93,9 @@ pub(super) struct Manager {
 
 impl Manager {
     pub(super) fn new(device: &wgpu::Device) -> Self {
-        let texture_bind_group_layout = init::create_texture_bind_group_layout(&device);
+        let texture_bind_group_layout = init::create_texture_bind_group_layout(device);
         let null_texture = Rc::new(Texture::create(
-            &device,
+            device,
             wgpu::Extent3d {
                 width: 1,
                 height: 1,
@@ -105,7 +105,7 @@ impl Manager {
 
         let mut texture_bind_groups = HashMap::new();
         texture_bind_groups.insert(
-            null_texture.texture.global_id(),
+            null_texture.contents.global_id(),
             create_texture_bind_group(
                 device,
                 &null_texture.view,
@@ -123,7 +123,7 @@ impl Manager {
 
     /// Registers a bind group for `texture`.
     pub(super) fn register_bind_group(&mut self, device: &wgpu::Device, texture: &Texture) {
-        let id = texture.texture.global_id();
+        let id = texture.contents.global_id();
 
         if self.texture_bind_groups.contains_key(&id) {
             return;
@@ -142,7 +142,7 @@ impl Manager {
 
     /// Gets the bind group previously registered for `texture`.
     pub(super) fn get_bind_group(&self, texture: &Texture) -> Option<&wgpu::BindGroup> {
-        self.texture_bind_groups.get(&texture.texture.global_id())
+        self.texture_bind_groups.get(&texture.contents.global_id())
     }
 }
 
@@ -171,11 +171,11 @@ pub(super) fn create_texture_bind_group(
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureView(&texture_view),
+                resource: wgpu::BindingResource::TextureView(texture_view),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Sampler(&sampler),
+                resource: wgpu::BindingResource::Sampler(sampler),
             },
         ],
         label: Some("texture_bind_group"),

@@ -1,10 +1,12 @@
 //! Rendering using `wgpu`.
+use crate::backends::wgpu::texture::Texture;
 use crate::{
     backends::wgpu::{core::Core, vertex},
     colour, font,
     metrics::Rect,
     resource, Result,
 };
+use std::rc::Rc;
 
 #[ouroboros::self_referencing]
 pub struct Renderer<'a, Font, Fg, Bg>
@@ -21,7 +23,7 @@ where
 
     #[covariant]
     #[borrows(resources)]
-    font_manager: font::Manager<'this, Font, Fg, vertex::Material<()>>,
+    font_manager: font::Manager<'this, Font, Rc<Texture>>,
 
     current_index: vertex::Index,
     shapes: vertex::ShapeQueue,
@@ -45,11 +47,7 @@ where
         // TODO: instancing
         let colour = self.lookup_fg(font.colour);
 
-        let texture = self.with_mut(|this| {
-            this.font_manager
-                .data(&font, this.core)
-                .map(|f| f.texture.clone())
-        })?;
+        let texture = self.with_mut(|this| this.font_manager.data(font.id, this.core).cloned())?;
 
         for glyph in &str.glyphs {
             let material = vertex::Material {
@@ -108,9 +106,7 @@ where
             bg: colour::Definition::default(),
             current_index: 0,
             shapes: vertex::ShapeQueue::default(),
-            font_manager_builder: |res| {
-                font::Manager::new(&res.fonts, &res.metrics, &res.palette.fg)
-            },
+            font_manager_builder: |res| font::Manager::new(&res.fonts, &res.metrics),
         }
         .build()
     }

@@ -113,11 +113,6 @@ impl Shape {
         }
     }
 
-    /// Gets the number of vertices referenced in this shape.
-    pub(super) fn num_vertices(&self) -> Index {
-        self.vertices.len() as Index
-    }
-
     /// Gets the number of indices referenced in this shape.
     pub(super) fn num_indices(&self) -> u32 {
         self.indices.len() as u32
@@ -145,8 +140,8 @@ pub(crate) type Index = u16;
 // TODO: make indices u32
 
 /// A bundle of data about texturing and colouring for a [Shape].
-pub struct Material<D> {
-    pub colour: colour::Definition,
-    pub texture: Rc<Texture>,
-    pub dimensions: D,
+pub(super) struct Material<D> {
+    pub(super) colour: colour::Definition,
+    pub(super) texture: Rc<Texture>,
+    pub(super) dimensions: D,
 }

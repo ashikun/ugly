@@ -34,7 +34,7 @@ struct Context {
     window: Window,
     #[covariant]
     #[borrows(window)]
-    renderer: ugly::backends::wgpu::Renderer<'this, FontMap, ugly::colour::Ega, ugly::colour::Ega>,
+    renderer: ugly::backends::wgpu::Renderer<'this, FontMap, Ega, Ega>,
 }
 
 impl ApplicationHandler for App {
@@ -132,7 +132,12 @@ impl App {
 
             label.layout(
                 metrics,
-                Rect::new(0, (i as i32) * font_height, WIN_WIDTH as i32, font_height),
+                Rect::new(
+                    5,
+                    5 + (i as i32) * font_height,
+                    WIN_WIDTH as i32,
+                    font_height,
+                ),
             );
 
             label
@@ -144,8 +149,6 @@ impl App {
 
         ctx.with_renderer_mut(|ren| {
             ren.clear(ega::Id::Dark(ega::BaseId::Cyan))?;
-            ren.fill(Rect::new(32, 16, 16, 32), ega::Id::Dark(ega::BaseId::White))?;
-            ren.fill(Rect::new(0, 0, 32, 16), ega::Id::Dark(ega::BaseId::Red))?;
 
             for label in &labels {
                 label.render(ren)?;
@@ -166,44 +169,6 @@ fn main() -> anyhow::Result<()> {
     event_loop.run_app(&mut app)?;
 
     Ok(())
-
-    /*
-
-    let gfx = ugly::backends::sdl::Manager::new(window, &fonts, &colours)?;
-
-
-    'running: loop {
-        for ev in event.poll_iter() {
-            match ev {
-                Event::KeyDown {
-                    keycode: Some(sdl2::keyboard::Keycode::Q),
-                    ..
-                } => break 'running,
-                Event::Quit { .. } => break 'running,
-                _ => (),
-            }
-        }
-
-        ren.clear(ega::Id::Dark(ega::BaseId::Black))?;
-
-        for label in &mut labels {
-            label.update_display(
-                &metrics,
-                "The quick brown fox jumps over the lazy dog. 0123456789",
-            );
-        }
-
-        for label in &mut labels {
-            label.render(&mut ren)?;
-        }
-
-        ren.present();
-    }
-
-    std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
-
-    Ok(())
-    */
 }
 
 type FontMap = ugly::resource::DefaultingHashMap<usize, ugly::Font>;
@@ -216,13 +181,3 @@ fn get_fonts() -> ugly::resource::DefaultingHashMap<usize, ugly::Font> {
 
     ugly::resource::DefaultingHashMap::new(map, font)
 }
-
-/*
-#[derive(Debug, Error)]
-enum Error {
-    #[error("SDL init error: {0}")]
-    Init(String),
-    #[error("SDL window build error: {0}")]
-    Window(sdl2::video::WindowBuildError),
-}
- */
