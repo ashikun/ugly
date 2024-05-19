@@ -111,14 +111,14 @@ impl App {
         };
 
         let colours = [
-            ega::Id::Bright(ega::BaseId::Black),
-            ega::Id::Bright(ega::BaseId::Red),
-            ega::Id::Bright(ega::BaseId::Green),
-            ega::Id::Bright(ega::BaseId::Yellow),
-            ega::Id::Bright(ega::BaseId::Blue),
-            ega::Id::Bright(ega::BaseId::Magenta),
-            ega::Id::Bright(ega::BaseId::Cyan),
-            ega::Id::Bright(ega::BaseId::White),
+            ega::Id::BRIGHT_RED,
+            ega::Id::BRIGHT_YELLOW,
+            ega::Id::BRIGHT_GREEN,
+            ega::Id::BRIGHT_CYAN,
+            ega::Id::BRIGHT_BLUE,
+            ega::Id::BRIGHT_MAGENTA,
+            ega::Id::BRIGHT_BLACK,
+            ega::Id::BRIGHT_WHITE,
         ];
 
         let metrics = ctx.borrow_renderer().font_metrics();

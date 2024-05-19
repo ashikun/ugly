@@ -31,7 +31,7 @@ pub const EGA: Ega = Ega {
         cyan: Definition::rgb(0x00, 0xAA, 0xAA),
         red: Definition::rgb(0xAA, 0x00, 0x00),
         magenta: Definition::rgb(0xAA, 0x00, 0xAA),
-        yellow: Definition::rgb(0xAA, 0x55, 0x00),
+        yellow: Definition::rgb(0xAA, 0x55, 0x00), // Intentionally brown
         white: Definition::rgb(0xAA, 0xAA, 0xAA),
     },
     bright: Base {
@@ -67,10 +67,45 @@ pub enum Id {
     Dark(BaseId),
 }
 
+impl Id {
+    /// Dark black.
+    pub const DARK_BLACK: Self = Id::Dark(BaseId::Black);
+    /// Dark blue.
+    pub const DARK_BLUE: Self = Id::Dark(BaseId::Blue);
+    /// Dark green.
+    pub const DARK_GREEN: Self = Id::Dark(BaseId::Green);
+    /// Dark cyan.
+    pub const DARK_CYAN: Self = Id::Dark(BaseId::Cyan);
+    /// Dark red.
+    pub const DARK_RED: Self = Id::Dark(BaseId::Red);
+    /// Dark magenta.
+    pub const DARK_MAGENTA: Self = Id::Dark(BaseId::Magenta);
+    /// Dark yellow (brown).
+    pub const DARK_YELLOW: Self = Id::Dark(BaseId::Yellow);
+    /// Dark white (silver).
+    pub const DARK_WHITE: Self = Id::Dark(BaseId::White);
+    /// Bright black (grey).
+    pub const BRIGHT_BLACK: Self = Id::Bright(BaseId::Black);
+    /// Bright blue.
+    pub const BRIGHT_BLUE: Self = Id::Bright(BaseId::Blue);
+    /// Bright green.
+    pub const BRIGHT_GREEN: Self = Id::Bright(BaseId::Green);
+    /// Bright cyan.
+    pub const BRIGHT_CYAN: Self = Id::Bright(BaseId::Cyan);
+    /// Bright red.
+    pub const BRIGHT_RED: Self = Id::Bright(BaseId::Red);
+    /// Bright magenta.
+    pub const BRIGHT_MAGENTA: Self = Id::Bright(BaseId::Magenta);
+    /// Bright yellow (brown).
+    pub const BRIGHT_YELLOW: Self = Id::Bright(BaseId::Yellow);
+    /// Bright white.
+    pub const BRIGHT_WHITE: Self = Id::Bright(BaseId::White);
+}
+
 /// The default EGA identifier is bright white, as we assume that we're targeting foreground.
 impl Default for Id {
     fn default() -> Self {
-        Self::Bright(BaseId::White)
+        Self::BRIGHT_WHITE
     }
 }
 
