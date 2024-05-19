@@ -14,3 +14,4 @@ wgpu = "0.20.0"
 ouroboros = "0.18.3"
 pollster = "0.3.0"
 futures = "0.3.30"
+clap = { version = "4.5.4", features = ["derive"] }

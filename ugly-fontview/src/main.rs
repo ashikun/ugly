@@ -24,8 +24,23 @@ use ugly::{
 const WIN_WIDTH: u32 = 640;
 const WIN_HEIGHT: u32 = 480;
 
-#[derive(Default)]
+use clap::Parser;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// The text to display on the font viewer.
+    #[arg(short, long)]
+    text: String,
+
+    /// Directory of font to load
+    #[arg(short, long, default_value = "../assets/fonts/medium")]
+    font: std::path::PathBuf,
+}
+
 struct App {
+    args: Args,
     context: Option<Context>,
 }
 
@@ -44,8 +59,9 @@ impl ApplicationHandler for App {
 
         let window = event_loop.create_window(attributes).unwrap();
 
+        let fonts = get_fonts(&self.args.font);
         let resources =
-            ugly::resource::Set::new(get_fonts(), ugly::colour::EGA, ugly::colour::EGA).unwrap();
+            ugly::resource::Set::new(fonts, ugly::colour::EGA, ugly::colour::EGA).unwrap();
 
         let ctx_builder = ContextAsyncTryBuilder {
             window,
@@ -103,6 +119,13 @@ impl ApplicationHandler for App {
 }
 
 impl App {
+    fn new(args: Args) -> Self {
+        Self {
+            args,
+            context: None,
+        }
+    }
+
     fn render(&mut self) -> anyhow::Result<()> {
         use ugly::colour::ega;
 
@@ -144,7 +167,7 @@ impl App {
         });
 
         for label in &mut labels {
-            label.update_display(metrics, "The quick brown fox jumps over the lazy dog.");
+            label.update_display(metrics, &self.args.text);
         }
 
         ctx.with_renderer_mut(|ren| {
@@ -162,10 +185,12 @@ impl App {
 }
 
 fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Wait);
 
-    let mut app = App::default();
+    let mut app = App::new(args);
     event_loop.run_app(&mut app)?;
 
     Ok(())
@@ -173,8 +198,8 @@ fn main() -> anyhow::Result<()> {
 
 type FontMap = ugly::resource::DefaultingHashMap<usize, ugly::Font>;
 
-fn get_fonts() -> ugly::resource::DefaultingHashMap<usize, ugly::Font> {
-    let font = font::Font::from_dir("../assets/fonts/medium");
+fn get_fonts(path: &std::path::Path) -> ugly::resource::DefaultingHashMap<usize, ugly::Font> {
+    let font = font::Font::from_dir(path);
 
     let mut map: HashMap<usize, _> = HashMap::new();
     map.insert(0, font.clone());
