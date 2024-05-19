@@ -7,7 +7,7 @@ pub(super) fn create_vertex(device: &wgpu::Device) -> wgpu::Buffer {
     let desc = wgpu::BufferDescriptor {
         label: Some("Vertex Buffer"),
         size: (std::mem::size_of::<Vertex>() as wgpu::BufferAddress)
-            * 256
+            * 1024
             * wgpu::COPY_BUFFER_ALIGNMENT,
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
@@ -20,7 +20,7 @@ pub(super) fn create_index(device: &wgpu::Device) -> wgpu::Buffer {
     let desc = wgpu::BufferDescriptor {
         label: Some("Index Buffer"),
         size: (std::mem::size_of::<u16>() as wgpu::BufferAddress)
-            * 256
+            * 1024
             * wgpu::COPY_BUFFER_ALIGNMENT,
         usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,

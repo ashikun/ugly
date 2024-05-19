@@ -1,13 +1,13 @@
 //! Font loading for `wgpu`.
 
-use super::{texture, vertex, Error};
-use crate::{colour, font, metrics};
-use std::rc::Rc;
+use crate::{colour, font};
 
-impl<'l> font::manager::Loader<'l> for super::Core<'l> {
-    type Data = vertex::Material<()>;
+use super::{vertex, Error};
 
-    fn load(&'l mut self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data> {
+impl<'l> font::manager::Loader for super::Core<'l> {
+    type Data<'a> = vertex::Material<()> where Self: 'a;
+
+    fn load(&mut self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data<'_>> {
         let texture = self.load_image(path).map_err(map_font_err)?;
 
         let data = vertex::Material {
@@ -17,11 +17,6 @@ impl<'l> font::manager::Loader<'l> for super::Core<'l> {
         };
 
         Ok(data)
-    }
-
-    fn colourise(&self, data: &mut Self::Data, fg: colour::Definition) {
-        // TODO: is this necessary?!
-        data.colour = fg;
     }
 }
 

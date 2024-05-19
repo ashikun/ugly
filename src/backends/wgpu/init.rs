@@ -67,27 +67,32 @@ pub(super) fn create_uniform_bind_group_layout(device: &wgpu::Device) -> wgpu::B
 pub(super) fn create_texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     let desc = wgpu::BindGroupLayoutDescriptor {
         entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
+            TEXTURE_BIND_GROUP_LAYOUT_ENTRY,
+            SAMPLER_BIND_GROUP_LAYOUT_ENTRY,
         ],
         label: Some("texture_bind_group_layout"),
     };
     device.create_bind_group_layout(&desc)
 }
+
+const TEXTURE_BIND_GROUP_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry = wgpu::BindGroupLayoutEntry {
+    binding: 0,
+    // Needs to be visible from the vertex shader too, so we can translate coordinates
+    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+    ty: wgpu::BindingType::Texture {
+        multisampled: false,
+        view_dimension: wgpu::TextureViewDimension::D2,
+        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+    },
+    count: None,
+};
+
+const SAMPLER_BIND_GROUP_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry = wgpu::BindGroupLayoutEntry {
+    binding: 1,
+    visibility: wgpu::ShaderStages::FRAGMENT,
+    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+    count: None,
+};
 
 /// Creates the bind group layout for the renderer's uniform buffer.
 pub(super) fn create_uniform_bind_group(

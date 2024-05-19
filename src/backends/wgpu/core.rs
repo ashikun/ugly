@@ -1,13 +1,14 @@
 //! The core of the `wgpu` rendering backend.
+use itertools::Itertools;
+use std::{path::Path, rc::Rc};
+
+use crate::colour;
+
 use super::{
     buffer, init,
     texture::{self, Texture},
-    vertex::Shape,
-    Result,
+    vertex, Result,
 };
-use crate::colour;
-use itertools::Itertools;
-use std::{path::Path, rc::Rc};
 
 /// The core of the `wgpu` renderer.
 pub struct Core<'a> {
@@ -68,7 +69,10 @@ impl<'a> Core<'a> {
 
         let pipeline_layout_desc = wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&uniform_bind_group_layout],
+            bind_group_layouts: &[
+                &uniform_bind_group_layout,
+                &textures.texture_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         };
         let pipeline_layout = device.create_pipeline_layout(&pipeline_layout_desc);
@@ -123,7 +127,7 @@ impl<'a> Core<'a> {
         Ok(Rc::new(tex))
     }
 
-    pub(super) fn render(&self, bg: colour::Definition, shapes: &[Shape]) {
+    pub(super) fn render(&self, bg: colour::Definition, shapes: &[(vertex::Index, vertex::Shape)]) {
         self.prepare_buffers(shapes);
 
         let output = self.surface.get_current_texture().unwrap();
@@ -159,7 +163,7 @@ impl<'a> Core<'a> {
             let mut cur_index: u32 = 0;
             let mut cur_texture_id: Option<wgpu::Id<wgpu::Texture>> = None;
 
-            for shape in shapes {
+            for (base_vertex, shape) in shapes {
                 let new_texture = shape.texture();
                 let new_texture_id = new_texture.texture.global_id();
                 let old_texture_id = cur_texture_id.replace(new_texture_id);
@@ -172,7 +176,7 @@ impl<'a> Core<'a> {
 
                 let next_index = cur_index + shape.num_indices() + 1;
 
-                render_pass.draw_indexed(cur_index..next_index, 0, 0..1);
+                render_pass.draw_indexed(cur_index..next_index, *base_vertex as i32, 0..1);
 
                 cur_index = next_index - 1;
             }
@@ -183,9 +187,9 @@ impl<'a> Core<'a> {
         output.present();
     }
 
-    fn prepare_buffers(&self, shapes: &[Shape]) {
-        let vertices = shapes.iter().flat_map(Shape::vertices).collect_vec();
-        let indices = shapes.iter().flat_map(Shape::indices).collect_vec();
+    fn prepare_buffers(&self, shapes: &[(vertex::Index, vertex::Shape)]) {
+        let vertices = shapes.iter().flat_map(|(_, s)| s.vertices()).collect_vec();
+        let indices = shapes.iter().flat_map(|(_, s)| s.indices()).collect_vec();
 
         self.queue
             .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));

@@ -7,6 +7,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub(super) struct Texture {
     pub(super) texture: wgpu::Texture,
+    pub(super) sampler: wgpu::Sampler,
     pub(super) view: wgpu::TextureView,
 }
 
@@ -73,7 +74,13 @@ impl Texture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        Self { texture, view }
+        let sampler = create_sampler(&device);
+
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 }
 
@@ -81,13 +88,11 @@ impl Texture {
 pub(super) struct Manager {
     pub(super) texture_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) texture_bind_groups: HashMap<wgpu::Id<wgpu::Texture>, wgpu::BindGroup>,
-    pub(super) sampler: wgpu::Sampler,
     pub(super) null_texture: Rc<Texture>,
 }
 
 impl Manager {
     pub(super) fn new(device: &wgpu::Device) -> Self {
-        let sampler = create_sampler(&device);
         let texture_bind_group_layout = init::create_texture_bind_group_layout(&device);
         let null_texture = Rc::new(Texture::create(
             &device,
@@ -104,13 +109,12 @@ impl Manager {
             create_texture_bind_group(
                 device,
                 &null_texture.view,
-                &sampler,
+                &null_texture.sampler,
                 &texture_bind_group_layout,
             ),
         );
 
         Self {
-            sampler,
             texture_bind_group_layout,
             texture_bind_groups,
             null_texture,
@@ -130,7 +134,7 @@ impl Manager {
             create_texture_bind_group(
                 device,
                 &texture.view,
-                &self.sampler,
+                &texture.sampler,
                 &self.texture_bind_group_layout,
             ),
         );

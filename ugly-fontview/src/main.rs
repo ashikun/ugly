@@ -1,20 +1,25 @@
 use std::collections::HashMap;
 
 use futures::future::FutureExt;
-use ugly::backends::wgpu::Core;
-use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
-use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
 use winit::{
+    application::ApplicationHandler,
+    dpi::PhysicalSize,
     event::*,
+    event_loop::ActiveEventLoop,
     event_loop::{ControlFlow, EventLoop},
     window::Window,
+    window::WindowId,
 };
 
-use ugly::metrics::Rect;
-use ugly::ui::{Layoutable, Renderable};
-use ugly::{font, Renderer};
+use ugly::{
+    backends::wgpu::Core,
+    colour::Ega,
+    font,
+    metrics::Rect,
+    resource::Map,
+    ui::{widgets::Label, Layoutable, Renderable},
+    Renderer,
+};
 
 const WIN_WIDTH: u32 = 640;
 const WIN_HEIGHT: u32 = 480;
@@ -99,16 +104,53 @@ impl ApplicationHandler for App {
 
 impl App {
     fn render(&mut self) -> anyhow::Result<()> {
+        use ugly::colour::ega;
+
         let Some(ctx) = &mut self.context else {
             return Ok(());
         };
 
-        ctx.with_renderer_mut(|ren| {
-            use ugly::colour::ega;
+        let colours = [
+            ega::Id::Bright(ega::BaseId::Black),
+            ega::Id::Bright(ega::BaseId::Red),
+            ega::Id::Bright(ega::BaseId::Green),
+            ega::Id::Bright(ega::BaseId::Yellow),
+            ega::Id::Bright(ega::BaseId::Blue),
+            ega::Id::Bright(ega::BaseId::Magenta),
+            ega::Id::Bright(ega::BaseId::Cyan),
+            ega::Id::Bright(ega::BaseId::White),
+        ];
 
+        let metrics = ctx.borrow_renderer().font_metrics();
+        let font_height = metrics.get(0).padded_h();
+
+        let mut labels: [Label<FontMap, Ega, Ega>; 8] = std::array::from_fn(|i| {
+            let mut label = Label::new(font::Spec {
+                id: 0,
+                colour: colours[i],
+            });
+
+            label.layout(
+                metrics,
+                Rect::new(0, (i as i32) * font_height, WIN_WIDTH as i32, font_height),
+            );
+
+            label
+        });
+
+        for label in &mut labels {
+            label.update_display(metrics, "The quick brown fox jumps over the lazy dog.");
+        }
+
+        ctx.with_renderer_mut(|ren| {
             ren.clear(ega::Id::Dark(ega::BaseId::Cyan))?;
             ren.fill(Rect::new(32, 16, 16, 32), ega::Id::Dark(ega::BaseId::White))?;
             ren.fill(Rect::new(0, 0, 32, 16), ega::Id::Dark(ega::BaseId::Red))?;
+
+            for label in &labels {
+                label.render(ren)?;
+            }
+
             ren.present();
 
             Ok(())
@@ -128,34 +170,7 @@ fn main() -> anyhow::Result<()> {
     /*
 
     let gfx = ugly::backends::sdl::Manager::new(window, &fonts, &colours)?;
-    let mut ren = gfx.renderer()?;
 
-    let colours = [
-        ega::Id::Bright(ega::BaseId::Black),
-        ega::Id::Bright(ega::BaseId::Red),
-        ega::Id::Bright(ega::BaseId::Green),
-        ega::Id::Bright(ega::BaseId::Yellow),
-        ega::Id::Bright(ega::BaseId::Blue),
-        ega::Id::Bright(ega::BaseId::Magenta),
-        ega::Id::Bright(ega::BaseId::Cyan),
-        ega::Id::Bright(ega::BaseId::White),
-    ];
-
-    let font_height = metrics.get(0).padded_h();
-
-    let mut labels: [Label<FontMap, Ega, Ega>; 8] = std::array::from_fn(|i| {
-        let mut label = Label::new(font::Spec {
-            id: 0,
-            colour: colours[i],
-        });
-
-        label.layout(
-            &metrics,
-            Rect::new(0, (i as i32) * font_height, WIN_WIDTH as i32, font_height),
-        );
-
-        label
-    });
 
     'running: loop {
         for ev in event.poll_iter() {

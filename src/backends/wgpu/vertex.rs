@@ -50,6 +50,31 @@ impl Vertex {
     }
 }
 
+/// A queue of shapes.
+#[derive(Clone, Debug, Default)]
+pub(super) struct ShapeQueue {
+    /// The number of vertices pushed in this queue, used to determine base vertices.
+    current_base: Index,
+
+    /// The contents of the queue.
+    contents: Vec<(Index, Shape)>,
+}
+
+impl ShapeQueue {
+    /// Pushes a shape onto the shape queue.
+    pub(super) fn push(&mut self, shape: Shape) {
+        let next_base = self.current_base + (shape.vertices.len() as Index);
+        self.contents.push((self.current_base, shape));
+        self.current_base = next_base;
+    }
+
+    /// Clears the queue and returns the enqueued data.
+    pub(super) fn take(&mut self) -> Vec<(Index, Shape)> {
+        self.current_base = 0;
+        std::mem::take(&mut self.contents)
+    }
+}
+
 /// A low level encoding of a shape:
 /// a pre-calculated list of vertices and indices with a particular texture.
 #[derive(Clone, Debug)]
@@ -60,8 +85,8 @@ pub(super) struct Shape {
 }
 
 impl Shape {
-    /// Constructs a quad with the given first index, on-screen rectangle, and material.
-    pub(super) fn quad(first_index: u16, screen_rect: Rect, material: Material<Rect>) -> Self {
+    /// Constructs a quad with the given on-screen rectangle and material.
+    pub(super) fn quad(screen_rect: Rect, material: Material<Rect>) -> Self {
         let anchors = [
             Anchor::BOTTOM_LEFT,
             Anchor::BOTTOM_RIGHT,
@@ -79,10 +104,7 @@ impl Shape {
                 )
             })
             .collect_vec();
-        let indices = [0, 1, 2, 0, 2, 3]
-            .iter()
-            .map(|x| x + first_index)
-            .collect_vec();
+        let indices = vec![0, 1, 2, 0, 2, 3];
 
         Shape {
             vertices,

@@ -43,19 +43,18 @@ impl Index {
 ///
 /// The lifetime `'l` is the lifetime of the loader when loading, and will usually also become the
 /// lifetime of aspects of the `Data`.
-pub trait Loader<'l> {
+pub trait Loader {
     /// The type of font data loaded by this loader.
-    type Data;
+    type Data<'l>
+    where
+        Self: 'l;
 
     /// Loads font texture data from a path.
     ///
     /// # Errors
     ///
     /// Fails if the font cannot be loaded from `path`.
-    fn load(&'l mut self, path: impl AsRef<Path>) -> Result<Self::Data>;
-
-    /// Applies the given foreground colour to font texture data.
-    fn colourise(&self, data: &mut Self::Data, fg: colour::Definition);
+    fn load(&mut self, path: impl AsRef<Path>) -> Result<Self::Data<'_>>;
 }
 
 /// A backend-agnostic, cached font manager.
@@ -106,11 +105,11 @@ where
     /// # Errors
     ///
     /// Returns an error if the spec does not point to a font.
-    pub fn data(
-        &mut self,
+    pub fn data<'b>(
+        &'b mut self,
         spec: &Spec<Font::Id, Fg::Id>,
-        loader: &'a mut impl Loader<'a, Data = Data>,
-    ) -> Result<&mut Data> {
+        loader: &'b mut impl Loader<Data<'b> = Data>,
+    ) -> Result<&'b Data> {
         let id = spec.id;
         let mut index: Index = *self.slot_mapping.get(id);
         if index.is_unset() {
@@ -125,8 +124,7 @@ where
             self.slot_mapping.set(id, index);
         }
 
-        let tex = &mut self.cache[index.0];
-        //loader.colourise(tex, *self.colour_set.get(spec.colour));
+        let tex = &self.cache[index.0];
         Ok(tex)
     }
 }

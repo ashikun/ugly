@@ -24,7 +24,7 @@ where
     font_manager: font::Manager<'this, Font, Fg, vertex::Material<()>>,
 
     current_index: vertex::Index,
-    shapes: Vec<vertex::Shape>,
+    shapes: vertex::ShapeQueue,
 }
 
 impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg>
@@ -42,6 +42,25 @@ where
         font: font::Spec<Font::Id, Fg::Id>,
         str: &font::layout::String,
     ) -> Result<()> {
+        // TODO: instancing
+        let colour = self.lookup_fg(font.colour);
+
+        let texture = self.with_mut(|this| {
+            this.font_manager
+                .data(&font, this.core)
+                .map(|f| f.texture.clone())
+        })?;
+
+        for glyph in &str.glyphs {
+            let material = vertex::Material {
+                texture: texture.clone(),
+                colour,
+                dimensions: glyph.src,
+            };
+
+            self.push_shape(vertex::Shape::quad(glyph.dst, material));
+        }
+
         Ok(())
     }
 
@@ -55,7 +74,7 @@ where
             dimensions: tex_rect,
         };
 
-        self.push_shape(|i| vertex::Shape::quad(i, rect, material));
+        self.push_shape(vertex::Shape::quad(rect, material));
 
         Ok(())
     }
@@ -71,11 +90,7 @@ where
     }
 
     fn present(&mut self) {
-        self.with_mut(|f| {
-            let shapes = std::mem::take(f.shapes);
-            *f.current_index = 0;
-            f.core.render(*f.bg, &shapes)
-        });
+        self.with_mut(|f| f.core.render(*f.bg, &f.shapes.take()));
     }
 }
 
@@ -92,7 +107,7 @@ where
             core,
             bg: colour::Definition::default(),
             current_index: 0,
-            shapes: vec![],
+            shapes: vertex::ShapeQueue::default(),
             font_manager_builder: |res| {
                 font::Manager::new(&res.fonts, &res.metrics, &res.palette.fg)
             },
@@ -100,10 +115,7 @@ where
         .build()
     }
 
-    fn push_shape(&mut self, shape_fn: impl FnOnce(vertex::Index) -> vertex::Shape) {
-        let shape = shape_fn(*self.borrow_current_index());
-
-        self.with_current_index_mut(|ci| *ci += shape.num_vertices());
+    fn push_shape(&mut self, shape: vertex::Shape) {
         self.with_shapes_mut(|shapes| shapes.push(shape));
     }
 
