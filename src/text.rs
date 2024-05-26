@@ -156,7 +156,7 @@ where
         // need to move so that the position (which is currently the left) is *on* that anchor.
         // This means the offset must be backwards.
         self.layout
-            .offset_mut(-self.alignment.offset(self.layout.bounds().size.w), 0);
+            .offset_mut(-self.alignment.offset(self.layout.bounds.size.w), 0);
     }
 }
 
@@ -205,7 +205,7 @@ mod tests {
         for c in r.log.drain(0..) {
             if let logger::Command::Write(_, s) = c {
                 assert_eq!(s.string, "hello, world");
-                assert_eq!(s.bounds().top_left, tl1);
+                assert_eq!(s.bounds.top_left, tl1);
             }
         }
 
@@ -222,7 +222,7 @@ mod tests {
         for c in r.log.drain(0..) {
             if let logger::Command::Write(_, s) = c {
                 assert_eq!(s.string, "how's it going?");
-                assert_eq!(s.bounds().top_left, tl2);
+                assert_eq!(s.bounds.top_left, tl2);
             }
         }
     }

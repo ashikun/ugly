@@ -105,11 +105,9 @@ impl Metrics {
     pub fn span_w_str(&self, str: &str) -> Length {
         // Pretend to lay out the string, then work out where the last character went.
         layout::String::layout(self, str.to_string(), Point::default())
-            .glyphs
-            .last()
-            .map_or(0, |glyph| {
-                glyph.dst.x(0, super::super::metrics::anchor::X::Right)
-            })
+            .bounds
+            .size
+            .w
     }
 
     /// Like `span_w`, but calculates the width of `c` including any proportionality adjustments.

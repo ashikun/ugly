@@ -28,7 +28,7 @@ struct VertexOutput {
 fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
 
-    out.clip_position = coord_conv(in.screen_xy);
+    out.clip_position = coord_conv(in.screen_xy + instance.delta);
     out.texture_position = tex_coord_conv(in.texture_xy);
     out.colour = in.colour;
 

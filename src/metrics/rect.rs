@@ -30,7 +30,7 @@ impl Rect {
     /// assert_eq!(15, rect.size.h);
     /// ```
     #[must_use]
-    pub fn new(x: Coord, y: Coord, w: Length, h: Length) -> Self {
+    pub const fn new(x: Coord, y: Coord, w: Length, h: Length) -> Self {
         Self {
             top_left: Point { x, y },
             size: Size { w, h },

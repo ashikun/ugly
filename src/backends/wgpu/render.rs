@@ -1,13 +1,10 @@
 //! Rendering using `wgpu`.
-use crate::backends::wgpu::shape;
-use crate::backends::wgpu::texture::Texture;
-use crate::{
-    backends::wgpu::{core::Core, vertex},
-    colour, font,
-    metrics::Rect,
-    resource, Result,
-};
+use itertools::Itertools;
 use std::rc::Rc;
+
+use crate::{colour, font, metrics, resource, Result};
+
+use super::{core::Core, instance::Instance, shape, texture::Texture, vertex};
 
 #[ouroboros::self_referencing]
 pub struct Renderer<'a, Font, Fg, Bg>
@@ -50,22 +47,39 @@ where
 
         let texture = self.with_mut(|this| this.font_manager.data(font.id, this.core).cloned())?;
 
-        for glyph in &str.glyphs {
+        for glyph in str.glyphs.values() {
             let material = vertex::Material {
                 texture: texture.clone(),
                 colour,
                 dimensions: glyph.src,
             };
 
-            self.push_shape(shape::Shape::quad(glyph.dst, material));
+            // Assuming that the source and dest are going to be the same
+            let size = glyph.src.size;
+            let init_dst = metrics::Rect {
+                top_left: metrics::Point::default(),
+                size,
+            };
+
+            let instances = glyph
+                .dsts
+                .iter()
+                .map(|top_left| Instance {
+                    delta: [top_left.x, top_left.y],
+                })
+                .collect_vec();
+
+            let shape = shape::Shape::quad(init_dst, material).instanced(instances);
+
+            self.push_shape(shape);
         }
 
         Ok(())
     }
 
-    fn fill(&mut self, rect: Rect, colour: Bg::Id) -> Result<()> {
+    fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> Result<()> {
         // Make a texture rect whose coordinates will always be negative
-        let tex_rect = Rect::new(-2, -2, 1, 1);
+        let tex_rect = metrics::Rect::new(-2, -2, 1, 1);
 
         let material = vertex::Material {
             colour: self.lookup_bg(colour),
@@ -91,7 +105,7 @@ where
     fn present(&mut self) {
         self.with_mut(|f| {
             let (buffers, manifests) = f.shapes.take();
-            f.core.render(*f.bg, &buffers, manifests)
+            f.core.render(*f.bg, &buffers, manifests);
         });
     }
 }
