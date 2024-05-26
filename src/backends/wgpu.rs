@@ -5,7 +5,9 @@ mod core;
 mod error;
 mod font;
 mod init;
+mod instance;
 mod render;
+mod shape;
 mod texture;
 mod vertex;
 

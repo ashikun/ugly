@@ -1,31 +1,86 @@
 //! Code for setting up the buffers for the `wgpu` renderer.
-use super::vertex::Vertex;
 use wgpu::util::DeviceExt;
+
+use super::{
+    instance::Instance,
+    vertex::{Index, Vertex},
+};
 
 /// Creates the vertex buffer.
 pub(super) fn create_vertex(device: &wgpu::Device) -> wgpu::Buffer {
+    create(
+        device,
+        "Vertex Buffer",
+        SizeFactor::<Vertex>::default(),
+        wgpu::BufferUsages::VERTEX,
+    )
+}
+
+/// Creates the index buffer.
+pub(super) fn create_index(device: &wgpu::Device) -> wgpu::Buffer {
+    create(
+        device,
+        "Index Buffer",
+        SizeFactor::<Index>::default(),
+        wgpu::BufferUsages::INDEX,
+    )
+}
+
+/// Creates the instance buffer.
+pub(super) fn create_instance(device: &wgpu::Device) -> wgpu::Buffer {
+    create(
+        device,
+        "Instance Buffer",
+        SizeFactor::<Instance>::default(),
+        wgpu::BufferUsages::VERTEX,
+    )
+}
+
+fn create<T>(
+    device: &wgpu::Device,
+    label: &str,
+    size_factor: SizeFactor<T>,
+    usage: wgpu::BufferUsages,
+) -> wgpu::Buffer {
     let desc = wgpu::BufferDescriptor {
-        label: Some("Vertex Buffer"),
-        size: (std::mem::size_of::<Vertex>() as wgpu::BufferAddress)
-            * 1024
-            * wgpu::COPY_BUFFER_ALIGNMENT,
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        label: Some(label),
+        size: size_factor.buffer_size(),
+        usage: usage | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     };
     device.create_buffer(&desc)
 }
 
-/// Creates the index buffer.
-pub(super) fn create_index(device: &wgpu::Device) -> wgpu::Buffer {
-    let desc = wgpu::BufferDescriptor {
-        label: Some("Index Buffer"),
-        size: (std::mem::size_of::<u16>() as wgpu::BufferAddress)
-            * 1024
-            * wgpu::COPY_BUFFER_ALIGNMENT,
-        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    };
-    device.create_buffer(&desc)
+/// The initial buffer allocation, in multiples of `COPY_BUFFER_ALIGNMENT`.
+const INITIAL_BUFFER_SIZE: wgpu::BufferAddress = 1024;
+
+/// A sizing factor for constructing a buffer.
+#[derive(Copy, Clone, Debug)]
+pub struct SizeFactor<T> {
+    factor: wgpu::BufferAddress,
+    ty: std::marker::PhantomData<T>,
+}
+
+impl<T> SizeFactor<T> {
+    const fn new(factor: wgpu::BufferAddress) -> Self {
+        Self {
+            factor,
+            ty: std::marker::PhantomData,
+        }
+    }
+
+    /// Calculates a safe buffer size holding `factor * COPY_BUFFER_ALIGNMENT` instances of `T`.
+    const fn buffer_size(self) -> wgpu::BufferAddress {
+        (std::mem::size_of::<T>() as wgpu::BufferAddress)
+            * self.factor
+            * wgpu::COPY_BUFFER_ALIGNMENT
+    }
+}
+
+impl<T> Default for SizeFactor<T> {
+    fn default() -> Self {
+        Self::new(INITIAL_BUFFER_SIZE)
+    }
 }
 
 /// Creates the uniform buffer using the initial data from `initial`.
@@ -64,4 +119,43 @@ impl Uniform {
             self.scale_factor = scale_factor;
         }
     }
+}
+
+/// A set of `wgpu` buffers.
+pub(super) struct Set {
+    pub(super) vertex: wgpu::Buffer,
+    pub(super) index: wgpu::Buffer,
+    pub(super) instance: wgpu::Buffer,
+    pub(super) uniform: wgpu::Buffer,
+}
+
+impl Set {
+    /// Creates a buffer set with the given device and initial uniform layout.
+    pub(super) fn new(device: &wgpu::Device, uniform: Uniform) -> Self {
+        Self {
+            vertex: create_vertex(device),
+            index: create_index(device),
+            instance: create_instance(device),
+            uniform: create_uniform(device, uniform),
+        }
+    }
+
+    /// Populates the buffers from the given input.
+    pub(super) fn populate(&self, queue: &wgpu::Queue, input: &Input) {
+        queue.write_buffer(&self.vertex, 0, bytemuck::cast_slice(&input.vertices));
+        queue.write_buffer(&self.index, 0, bytemuck::cast_slice(&input.indices));
+        queue.write_buffer(&self.instance, 0, bytemuck::cast_slice(&input.instances));
+    }
+}
+
+/// Inputs for populating a buffer set.
+#[derive(Clone, Debug, Default)]
+pub(super) struct Input {
+    // TODO: is this inefficient?
+    /// The list of vertices to push to the vertex buffer.
+    pub(super) vertices: Vec<Vertex>,
+    /// The list of indices to push to the index buffer.
+    pub(super) indices: Vec<Index>,
+    /// The list of instances to push to the instance buffer.
+    pub(super) instances: Vec<Instance>,
 }

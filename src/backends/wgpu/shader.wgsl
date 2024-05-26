@@ -14,6 +14,10 @@ struct VertexInput {
     @location(2) colour: vec4<f32>,
 }
 
+struct InstanceInput {
+    @location(3) delta: vec2<i32>,
+}
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) texture_position: vec2<f32>,
@@ -21,7 +25,7 @@ struct VertexOutput {
 }
 
 @vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
+fn vs_main(in: VertexInput, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
 
     out.clip_position = coord_conv(in.screen_xy);

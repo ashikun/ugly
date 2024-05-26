@@ -1,4 +1,5 @@
 //! Rendering using `wgpu`.
+use crate::backends::wgpu::shape;
 use crate::backends::wgpu::texture::Texture;
 use crate::{
     backends::wgpu::{core::Core, vertex},
@@ -26,7 +27,7 @@ where
     font_manager: font::Manager<'this, Font, Rc<Texture>>,
 
     current_index: vertex::Index,
-    shapes: vertex::ShapeQueue,
+    shapes: shape::Queue,
 }
 
 impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg>
@@ -56,7 +57,7 @@ where
                 dimensions: glyph.src,
             };
 
-            self.push_shape(vertex::Shape::quad(glyph.dst, material));
+            self.push_shape(shape::Shape::quad(glyph.dst, material));
         }
 
         Ok(())
@@ -72,7 +73,7 @@ where
             dimensions: tex_rect,
         };
 
-        self.push_shape(vertex::Shape::quad(rect, material));
+        self.push_shape(shape::Shape::quad(rect, material));
 
         Ok(())
     }
@@ -88,7 +89,10 @@ where
     }
 
     fn present(&mut self) {
-        self.with_mut(|f| f.core.render(*f.bg, &f.shapes.take()));
+        self.with_mut(|f| {
+            let (buffers, manifests) = f.shapes.take();
+            f.core.render(*f.bg, &buffers, manifests)
+        });
     }
 }
 
@@ -105,13 +109,13 @@ where
             core,
             bg: colour::Definition::default(),
             current_index: 0,
-            shapes: vertex::ShapeQueue::default(),
+            shapes: shape::Queue::default(),
             font_manager_builder: |res| font::Manager::new(&res.fonts, &res.metrics),
         }
         .build()
     }
 
-    fn push_shape(&mut self, shape: vertex::Shape) {
+    fn push_shape(&mut self, shape: shape::Shape) {
         self.with_shapes_mut(|shapes| shapes.push(shape));
     }
 

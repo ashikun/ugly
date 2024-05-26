@@ -1,7 +1,7 @@
 //! High-level initialisation functions for `wgpu`.
 //!
 //! Initialisation functions for buffers belong in the `buffer` module.
-use super::{vertex::Vertex, Error, Result};
+use super::{instance::Instance, vertex::Vertex, Error, Result};
 
 /// Creates a `wgpu` adapter.
 pub(super) async fn create_adapter<'w>(
@@ -124,11 +124,11 @@ pub(super) fn create_pipeline(
     let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
     let pipeline_desc = wgpu::RenderPipelineDescriptor {
         label: Some("Render Pipeline"),
-        layout: Some(&layout),
+        layout: Some(layout),
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[Vertex::desc()],
+            buffers: &[Vertex::desc(), Instance::desc()],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {
@@ -154,6 +154,5 @@ pub(super) fn create_pipeline(
         },
         multiview: None,
     };
-    let pipeline = device.create_render_pipeline(&pipeline_desc);
-    pipeline
+    device.create_render_pipeline(&pipeline_desc)
 }
