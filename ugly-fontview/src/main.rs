@@ -88,18 +88,10 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             }
             WindowEvent::Resized(new_size) => {
-                let Some(ctx) = &mut self.context else {
-                    return;
-                };
-
-                ctx.with_renderer_mut(|r| r.with_core_mut(|c| c.resize(new_size)));
+                self.on_core(|c| c.resize(new_size));
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                let Some(ctx) = &mut self.context else {
-                    return;
-                };
-
-                ctx.with_renderer_mut(|r| r.with_core_mut(|c| c.rescale(scale_factor as f32)));
+                self.on_core(|c| c.rescale(scale_factor as f32));
             }
             WindowEvent::RedrawRequested => {
                 // Redraw the application.
@@ -109,15 +101,6 @@ impl ApplicationHandler for App {
                 // the program to gracefully handle redraws requested by the OS.
 
                 self.render().unwrap();
-
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw in
-                // applications which do not always need to. Applications that redraw continuously
-                // can render here instead.
-                if let Some(ref ctx) = self.context {
-                    ctx.borrow_window().request_redraw();
-                }
             }
             _ => (),
         }
@@ -187,6 +170,13 @@ impl App {
 
             Ok(())
         })
+    }
+
+    fn on_core(&mut self, f: impl FnMut(&mut Core)) {
+        if let Some(ref mut ctx) = self.context {
+            ctx.with_renderer_mut(|r| r.with_core_mut(f));
+            ctx.borrow_window().request_redraw();
+        }
     }
 }
 
