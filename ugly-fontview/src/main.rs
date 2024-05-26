@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use clap::Parser;
 use futures::future::FutureExt;
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
+    dpi::LogicalSize,
     event::*,
     event_loop::ActiveEventLoop,
     event_loop::{ControlFlow, EventLoop},
@@ -23,8 +24,6 @@ use ugly::{
 
 const WIN_WIDTH: u32 = 640;
 const WIN_HEIGHT: u32 = 480;
-
-use clap::Parser;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -54,7 +53,7 @@ struct Context {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let size = PhysicalSize::new(WIN_WIDTH, WIN_HEIGHT);
+        let size = LogicalSize::new(WIN_WIDTH, WIN_HEIGHT);
         let attributes = Window::default_attributes().with_inner_size(size);
 
         let window = event_loop.create_window(attributes).unwrap();
@@ -94,6 +93,13 @@ impl ApplicationHandler for App {
                 };
 
                 ctx.with_renderer_mut(|r| r.with_core_mut(|c| c.resize(new_size)));
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                let Some(ctx) = &mut self.context else {
+                    return;
+                };
+
+                ctx.with_renderer_mut(|r| r.with_core_mut(|c| c.rescale(scale_factor as f32)));
             }
             WindowEvent::RedrawRequested => {
                 // Redraw the application.

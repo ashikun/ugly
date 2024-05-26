@@ -45,12 +45,23 @@ pub(super) struct Uniform {
     /// The current screen size, in pixels.
     /// Used to convert screen coordinates to clip-space coordinates.
     pub(super) screen_size: [u32; 2],
+    padding: u32,
+    /// The current scale factor of the screen (not the textures).
+    pub(super) scale_factor: f32,
 }
 
 impl Uniform {
-    /// Updates the uniform buffer
+    /// Updates the uniform buffer's screen size.
     pub(super) fn update_screen_size(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         self.screen_size[0] = size.width;
         self.screen_size[1] = size.height;
+    }
+
+    /// Updates the uniform buffer's scale factor.
+    /// Ignores any obviously incorrect scale factors.
+    pub(super) fn update_scale_factor(&mut self, scale_factor: f32) {
+        if 0.0 < scale_factor {
+            self.scale_factor = scale_factor;
+        }
     }
 }

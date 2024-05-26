@@ -56,9 +56,9 @@ impl<'a> Core<'a> {
         let vertex_buffer = buffer::create_vertex(&device);
         let index_buffer = buffer::create_index(&device);
 
-        let uniform = buffer::Uniform {
-            screen_size: [size.width, size.height],
-        };
+        let mut uniform = buffer::Uniform::default();
+        uniform.update_screen_size(size);
+        uniform.update_scale_factor(window.scale_factor() as f32);
         let uniform_buffer = buffer::create_uniform(&device, uniform);
 
         let uniform_bind_group_layout = init::create_uniform_bind_group_layout(&device);
@@ -86,11 +86,11 @@ impl<'a> Core<'a> {
             pipeline,
             vertex_buffer,
             index_buffer,
-            uniform,
             uniform_buffer,
             uniform_bind_group,
             textures,
             size,
+            uniform,
         })
     }
 
@@ -100,7 +100,7 @@ impl<'a> Core<'a> {
             return;
         }
 
-        self.size = new_size;
+        self.uniform.update_screen_size(new_size);
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
@@ -108,9 +108,14 @@ impl<'a> Core<'a> {
         self.update_uniform();
     }
 
-    fn update_uniform(&mut self) {
-        self.uniform.update_screen_size(self.size);
+    /// Notifies the rendering core of a change to the window scale factor.
+    pub fn rescale(&mut self, new_scale: f32) {
+        self.uniform.update_scale_factor(new_scale);
 
+        self.update_uniform();
+    }
+
+    fn update_uniform(&mut self) {
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniform));
     }

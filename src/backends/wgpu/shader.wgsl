@@ -1,5 +1,7 @@
 struct Uniform {
-    screen_size: vec2<i32>,
+    screen_size : vec2<i32>,  // Physical screen size (pixels)
+    ignored     : i32,        // Padding
+    scale_factor: f32,        // Screen scaling factor (x)
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniform;
@@ -34,9 +36,10 @@ fn coord_conv(in: vec2<i32>) -> vec4<f32> {
     let screen = vec2<f32>(uni.screen_size);
 
     var out = vec2<f32>(in);
-    out.y   = (screen.y - 1) - out.y;     // Invert Y coordinates, keeping within (0..screen.y)
-    out    /= (screen * vec2<f32>(0.5));  // Normalise to (0.0, 2.0)
-    out    -= vec2<f32>(1.0);             // Shift to (-1.0, 1.0)
+    out    *= vec2<f32>(uni.scale_factor);  // Convert logical to physical screen coordinates
+    out.y   = (screen.y - 1) - out.y;       // Invert Y coordinates, keeping within (0..screen.y)
+    out    /= (screen * vec2<f32>(0.5));    // Normalise to (0.0, 2.0)
+    out    -= vec2<f32>(1.0);               // Shift to (-1.0, 1.0)
 
     return vec4<f32>(out, 0.0, 1.0);
 }
