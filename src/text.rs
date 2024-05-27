@@ -17,17 +17,20 @@ pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
     /// The alignment for the writing.
     alignment: metrics::anchor::X,
 
-    /// The spec of the font being used for writing.
-    font_spec: font::Spec<Font::Id, Fg::Id>,
+    /// The font being used for writing.
+    pub(crate) font: Font::Id,
+
+    /// The foreground colour being used for writing.
+    fg: Fg::Id,
 
     /// The string currently being built inside this writer.
     current_str: String,
 
-    /// The most recently laid-out string.
-    layout: font::layout::String,
-
     /// Phantom type for the background colour.
     bg_phantom: marker::PhantomData<Bg>,
+
+    /// The most recently laid-out string.
+    layout: font::layout::String,
 
     /// Can we reuse the last computed layout?
     layout_reusable: bool,
@@ -47,7 +50,8 @@ where
         Self {
             pos: metrics::Point::default(),
             alignment: metrics::anchor::X::Left,
-            font_spec: font::Spec::default(),
+            font: Font::Id::default(),
+            fg: Fg::Id::default(),
             current_str: String::default(),
             layout: font::layout::String::default(),
             bg_phantom: marker::PhantomData {},
@@ -85,24 +89,14 @@ where
         }
     }
 
-    /// Gets the font spec of this writer.
-    pub fn font_spec(&self) -> &font::Spec<Font::Id, Fg::Id> {
-        &self.font_spec
-    }
-
-    /// Sets the font spec of this writer to `spec`.
-    pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
-        self.font_spec = spec;
-    }
-
     /// Sets the font of this writer to `id`.
-    pub fn set_font(&mut self, id: Font::Id) {
-        self.font_spec.id = id;
+    pub fn set_font(&mut self, font: Font::Id) {
+        self.font = font;
     }
 
     /// Sets the foreground colour of this writer to `fg`.
     pub fn set_fg(&mut self, fg: Fg::Id) {
-        self.font_spec.colour = fg;
+        self.fg = fg;
     }
 
     /// Sets the string-to-be-rendered to `str`.
@@ -121,7 +115,7 @@ where
         &self,
         r: &mut R,
     ) -> error::Result<()> {
-        r.write(self.font_spec, &self.layout)
+        r.write(self.font, self.fg, &self.layout)
     }
 
     /// Lays out the current string.
@@ -139,7 +133,7 @@ where
 
     /// Lays out `str` using `metrics`.
     fn actually_layout(&mut self, metrics: &Font::MetricsMap) {
-        let fm = metrics.get(self.font_spec.id);
+        let fm = metrics.get(self.font);
 
         self.layout = font::layout::String::layout(fm, self.current_str.clone(), self.pos);
         self.align_layout();
@@ -203,7 +197,7 @@ mod tests {
         r.present();
 
         for c in r.log.drain(0..) {
-            if let logger::Command::Write(_, s) = c {
+            if let logger::Command::Write(_, _, s) = c {
                 assert_eq!(s.string, "hello, world");
                 assert_eq!(s.bounds.top_left, tl1);
             }
@@ -220,7 +214,7 @@ mod tests {
         r.present();
 
         for c in r.log.drain(0..) {
-            if let logger::Command::Write(_, s) = c {
+            if let logger::Command::Write(_, _, s) = c {
                 assert_eq!(s.string, "how's it going?");
                 assert_eq!(s.bounds.top_left, tl2);
             }

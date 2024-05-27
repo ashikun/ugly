@@ -35,9 +35,10 @@ where
 {
     /// Constructs a label with the given font specification.
     #[must_use]
-    pub fn new(font_spec: font::Spec<Font::Id, Fg::Id>) -> Self {
+    pub fn new(font: Font::Id, fg: Fg::Id) -> Self {
         let mut writer = Writer::new();
-        writer.set_font_spec(font_spec);
+        writer.set_font(font);
+        writer.set_fg(fg);
 
         Self {
             bounds: metrics::Rect::default(),
@@ -66,11 +67,6 @@ where
         self.writer.set_font(font);
     }
 
-    /// Sets the font spec of the label.
-    pub fn set_font_spec(&mut self, spec: font::Spec<Font::Id, Fg::Id>) {
-        self.writer.set_font_spec(spec);
-    }
-
     /// Converts `str` to a string then updates the label with it.
     pub fn update_display(&mut self, metrics: &Font::MetricsMap, str: impl std::fmt::Display) {
         self.writer.move_to(self.writer_pos());
@@ -96,7 +92,7 @@ where
 {
     fn min_bounds(&self, ctx: &Ctx) -> metrics::Size {
         ctx.font_metrics()
-            .get(self.writer.font_spec().id)
+            .get(self.writer.font)
             .text_size(i32::from(self.min_chars), 1)
     }
 

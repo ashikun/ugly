@@ -4,12 +4,11 @@ use crate::font;
 
 use super::{texture::Texture, Error};
 
-impl<'l> font::manager::Loader for super::Core<'l> {
-    type Data<'a> = std::rc::Rc<Texture> where Self: 'a;
-
-    fn load(&mut self, path: impl AsRef<std::path::Path>) -> font::Result<Self::Data<'_>> {
-        self.load_image(path).map_err(map_font_err)
-    }
+pub(super) fn load(
+    core: &mut super::Core,
+    path: &std::path::Path,
+) -> font::Result<std::rc::Rc<Texture>> {
+    core.load_image(path).map_err(map_font_err)
 }
 
 fn map_font_err(error: Error) -> font::Error {

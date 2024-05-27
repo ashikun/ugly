@@ -137,10 +137,7 @@ impl App {
         let font_height = metrics.get(0).padded_h();
 
         let mut labels: [Label<FontMap, Ega, Ega>; 8] = std::array::from_fn(|i| {
-            let mut label = Label::new(font::Spec {
-                id: 0,
-                colour: colours[i],
-            });
+            let mut label = Label::new(0, colours[i]);
 
             label.layout(
                 metrics,
@@ -172,9 +169,9 @@ impl App {
         })
     }
 
-    fn on_core(&mut self, f: impl FnMut(&mut Core)) {
+    fn on_core(&mut self, mut f: impl FnMut(&mut Core)) {
         if let Some(ref mut ctx) = self.context {
-            ctx.with_renderer_mut(|r| r.with_core_mut(f));
+            ctx.with_renderer_mut(|r| f(&mut r.core));
             ctx.borrow_window().request_redraw();
         }
     }

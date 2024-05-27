@@ -25,7 +25,6 @@ thiserror = "1.0.60"
 wgpu = "0.20.0"
 winit = "0.30.0"
 itertools = "0.13.0"
-ouroboros = "0.18.3"
 
 [dev-dependencies]
 criterion = "0.5.1"

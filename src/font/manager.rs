@@ -1,12 +1,13 @@
 //! Font management.
 //!
 //! This part of the font subsystem deals with storing font texture data, predominantly.
-use std::{hash::Hash, path::Path};
-
-use super::{
-    super::resource::{Map, MutableMap},
-    Result,
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    hash::Hash,
+    path::Path,
 };
+
+use super::Result;
 
 /// An index for a loaded font in a [Manager].
 ///
@@ -52,32 +53,29 @@ pub trait Loader {
 }
 
 /// A backend-agnostic, cached font manager.
-pub struct Manager<'a, Font, Data>
+pub struct Manager<Font, Data>
 where
     Font: super::Map,
 {
-    /// Mapping from specs to already-cached font indices.
-    slot_mapping: Font::IndexMap,
     /// The cache of already-loaded fonts.
-    cache: Vec<Data>,
+    cache: HashMap<Font::Id, Data>,
 
     /// The font path set.
-    font_set: &'a Font,
+    font_set: Font,
     /// The font metrics set.
-    metrics_set: &'a Font::MetricsMap,
+    metrics_set: Font::MetricsMap,
 }
 
-impl<'a, Font, Data> Manager<'a, Font, Data>
+impl<Font, Data> Manager<Font, Data>
 where
     Font: super::Map,
     Font::Id: Eq + Hash,
 {
     /// Creates a font manager with the given texture creator and config maps.
     #[must_use]
-    pub fn new(font_set: &'a Font, metrics_set: &'a Font::MetricsMap) -> Self {
+    pub fn new(font_set: Font, metrics_set: Font::MetricsMap) -> Self {
         Self {
-            cache: Vec::new(),
-            slot_mapping: Font::IndexMap::default(),
+            cache: HashMap::new(),
             font_set,
             metrics_set,
         }
@@ -88,30 +86,26 @@ where
         &self.metrics_set
     }
 
-    /// Gets the data for the given font specification.
+    /// Gets the data for the given font ID.
+    ///
+    /// If the font is not present, its texture will be loaded using `loader`.
     ///
     /// # Errors
     ///
     /// Returns an error if the spec does not point to a font.
-    pub fn data<'b>(
-        &'b mut self,
+    pub fn data(
+        &mut self,
         id: Font::Id,
-        loader: &'b mut impl Loader<Data<'b> = Data>,
-    ) -> Result<&'b Data> {
-        let mut index: Index = *self.slot_mapping.get(id);
-        if index.is_unset() {
-            // This is where we're about to add a new index.
-            index = Index(self.cache.len());
+        mut loader: impl FnMut(&Path) -> Result<Data>,
+    ) -> Result<&Data> {
+        match self.cache.entry(id) {
+            Entry::Occupied(slot) => Ok(slot.into_mut()),
+            Entry::Vacant(slot) => {
+                let path = &self.font_set.get(id).texture_path();
+                let data = loader(path)?;
 
-            let path = &self.font_set.get(id).texture_path();
-            let tex = loader.load(path)?;
-            self.cache.push(tex);
-
-            // TODO(@MattWindsor91): index usize::MAX should be off limits; we should raise an error
-            self.slot_mapping.set(id, index);
+                Ok(slot.insert(data))
+            }
         }
-
-        let tex = &self.cache[index.0];
-        Ok(tex)
     }
 }

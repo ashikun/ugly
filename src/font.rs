@@ -14,14 +14,12 @@ pub mod error;
 pub mod layout;
 pub mod manager;
 pub mod metrics;
-pub mod spec;
 
 use std::path::PathBuf;
 
 pub use error::{Error, Result};
 pub use manager::{Index, Manager};
 pub use metrics::Metrics;
-pub use spec::Spec;
 
 /// A font.
 ///

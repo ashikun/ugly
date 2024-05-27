@@ -20,14 +20,15 @@ pub trait Renderer<
     /// Gets an immutable reference to this renderer's font metrics.
     fn font_metrics(&self) -> &Font::MetricsMap;
 
-    /// Writes the layout-calculated string `str` with the font `font`.
+    /// Writes the layout-calculated string `str` with the font `font` and foreground colour `fg`.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't render the writing.
     fn write(
         &mut self,
-        font: font::Spec<Font::Id, Fg::Id>,
+        font: Font::Id,
+        fg: Fg::Id,
         str: &font::layout::String,
     ) -> error::Result<()>;
 

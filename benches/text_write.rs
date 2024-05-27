@@ -57,7 +57,8 @@ fn setup_write(
 
     let logger = render::logger::Logger::new(mmap);
     let mut writer = text::Writer::new();
-    writer.set_font_spec(font::Spec::default());
+    writer.set_font(());
+    writer.set_fg(());
     (logger, writer)
 }
 
