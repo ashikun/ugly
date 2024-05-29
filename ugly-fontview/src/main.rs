@@ -126,22 +126,23 @@ impl App {
         };
 
         let colours = [
-            ega::Id::BRIGHT_RED,
-            ega::Id::BRIGHT_YELLOW,
-            ega::Id::BRIGHT_GREEN,
-            ega::Id::BRIGHT_CYAN,
-            ega::Id::BRIGHT_BLUE,
-            ega::Id::BRIGHT_MAGENTA,
-            ega::Id::BRIGHT_BLACK,
-            ega::Id::BRIGHT_WHITE,
+            ega::BaseId::Red,
+            ega::BaseId::Yellow,
+            ega::BaseId::Green,
+            ega::BaseId::Cyan,
+            ega::BaseId::Blue,
+            ega::BaseId::Magenta,
+            ega::BaseId::Black,
+            ega::BaseId::White,
         ];
 
         let metrics = ctx.borrow_renderer().font_metrics();
         let font_height = metrics.get(0).padded_h();
 
         let mut labels: [Label<_, _, _>; 8] = std::array::from_fn(|i| {
-            let writer = Writer::new(0, colours[i]);
+            let writer = Writer::new(0, ega::Id::Bright(colours[i]));
             let mut label = Label::new(writer);
+            label.set_bg(ega::Id::Dark(colours[i]));
 
             label.set_bounds(Rect::new(
                 5,

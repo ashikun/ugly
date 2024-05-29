@@ -1,6 +1,6 @@
 //! Mid-level text composition interface.
 
-use std::{marker, mem};
+use std::mem;
 
 use crate::{error, font, metrics, render, resource::Map};
 
@@ -10,7 +10,7 @@ use crate::{error, font, metrics, render, resource::Map};
 /// method: the writer will try to minimise re-layouting and font acquisition when strings and
 /// options change.
 #[derive(Debug, Clone)]
-pub struct Writer<FontId, FgId, BgId> {
+pub struct Writer<FontId, FgId> {
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -26,9 +26,6 @@ pub struct Writer<FontId, FgId, BgId> {
     /// The string currently being built inside this writer.
     current_str: String,
 
-    /// Phantom type for the background colour.
-    bg_phantom: marker::PhantomData<BgId>,
-
     /// The most recently laid-out string.
     layout: font::layout::String,
 
@@ -36,18 +33,17 @@ pub struct Writer<FontId, FgId, BgId> {
     layout_reusable: bool,
 }
 
-impl<FontId, FgId, BgId> Default for Writer<FontId, FgId, BgId>
+impl<FontId, FgId> Default for Writer<FontId, FgId>
 where
     FontId: Default,
     FgId: Default,
-    BgId: Default,
 {
     fn default() -> Self {
         Self::new(FontId::default(), FgId::default())
     }
 }
 
-impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId> {
+impl<FontId, FgId> Writer<FontId, FgId> {
     /// Constructs a new writer with the given font and colours.
     pub fn new(font: FontId, fg: FgId) -> Self {
         Self {
@@ -57,13 +53,12 @@ impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId> {
             fg,
             current_str: String::default(),
             layout: font::layout::String::default(),
-            bg_phantom: marker::PhantomData {},
             layout_reusable: false,
         }
     }
 }
 
-impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId>
+impl<FontId, FgId> Writer<FontId, FgId>
 where
     FontId: Copy,
 {
@@ -89,18 +84,17 @@ where
     }
 }
 
-impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId>
+impl<FontId, FgId> Writer<FontId, FgId>
 where
     FontId: Copy,
     FgId: Copy,
-    BgId: Copy,
 {
     /// Renders the most recently written string.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't blit glyphs to the screen.
-    pub fn render<'f>(
+    pub fn render<'f, BgId>(
         &self,
         r: &mut impl render::Renderer<'f, FontId, FgId, BgId>,
     ) -> error::Result<()> {
@@ -108,7 +102,7 @@ where
     }
 }
 
-impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId> {
+impl<FontId, FgId> Writer<FontId, FgId> {
     /// Gets the alignment of this writer.
     pub fn alignment(&self) -> metrics::anchor::X {
         self.alignment
@@ -188,7 +182,7 @@ mod tests {
 
         let metrics = DefaultingHashMap::new(HashMap::<(), _>::new(), met);
 
-        let mut writer = Writer::<(), (), ()>::default();
+        let mut writer = Writer::<(), ()>::default();
 
         let mut r: logger::Logger<(), (), ()> = logger::Logger::default();
 

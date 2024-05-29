@@ -1,11 +1,11 @@
 //! Label widgets.
 
-use crate::ui::layout::Boundable;
-use crate::{metrics, resource::Map, text::Writer, Renderer, Result};
 use std::hash::Hash;
 
+use crate::{metrics, resource::Map, text::Writer, Renderer, Result};
+
 use super::super::{
-    layout::{LayoutContext, Layoutable},
+    layout::{Boundable, LayoutContext, Layoutable},
     render::Renderable,
     update::Updatable,
 };
@@ -19,7 +19,10 @@ pub struct Label<FontId, FgId, BgId> {
     bounds: metrics::Rect,
 
     /// The writer for the label.
-    writer: Writer<FontId, FgId, BgId>,
+    writer: Writer<FontId, FgId>,
+
+    /// The background colour, if any.
+    bg: Option<BgId>,
 
     /// The minimum amount of expected characters in the label.
     pub min_chars: u8,
@@ -28,10 +31,11 @@ pub struct Label<FontId, FgId, BgId> {
 impl<FontId, FgId, BgId> Label<FontId, FgId, BgId> {
     /// Constructs a label over the given writer.
     #[must_use]
-    pub fn new(writer: Writer<FontId, FgId, BgId>) -> Self {
+    pub fn new(writer: Writer<FontId, FgId>) -> Self {
         Self {
             bounds: metrics::Rect::default(),
             writer,
+            bg: None,
             min_chars: 0,
         }
     }
@@ -49,6 +53,11 @@ impl<FontId, FgId, BgId> Label<FontId, FgId, BgId> {
     /// Sets the foreground colour of the label.
     pub fn set_fg(&mut self, fg: FgId) {
         self.writer.set_fg(fg);
+    }
+
+    /// Sets the foreground colour of the label.
+    pub fn set_bg(&mut self, bg: impl Into<Option<BgId>>) {
+        self.bg = bg.into();
     }
 
     /// Sets the font of the label.
@@ -115,6 +124,10 @@ where
     BgId: Copy,
 {
     fn render(&self, r: &mut R) -> Result<()> {
+        if let Some(bg) = self.bg {
+            r.fill(self.bounds, bg)?;
+        }
+
         self.writer.render(r)
     }
 }
