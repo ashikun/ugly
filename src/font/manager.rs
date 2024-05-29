@@ -23,35 +23,6 @@ impl Default for Index {
     }
 }
 
-impl Index {
-    /// Gets whether this index is the default, unset value.
-    ///
-    /// ```
-    /// use crate::ugly::font::Index;
-    ///
-    /// assert!(Index::default().is_unset());
-    /// ```
-    #[must_use]
-    pub const fn is_unset(&self) -> bool {
-        self.0 == usize::MAX
-    }
-}
-
-/// Trait of objects that can load and manipulate font data.
-pub trait Loader {
-    /// The type of font data loaded by this loader.
-    type Data<'l>
-    where
-        Self: 'l;
-
-    /// Loads font texture data from a path.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the font cannot be loaded from `path`.
-    fn load(&mut self, path: impl AsRef<Path>) -> Result<Self::Data<'_>>;
-}
-
 /// A backend-agnostic, cached font manager.
 pub struct Manager<Font, Data>
 where

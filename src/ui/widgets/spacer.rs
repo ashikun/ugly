@@ -6,6 +6,7 @@ use super::super::{
     render::Renderable,
     update::Updatable,
 };
+use crate::ui::layout::Boundable;
 use std::marker::PhantomData;
 
 /// Dummy widget that renders nothing but consumes some minimum size provided by a function of the
@@ -20,7 +21,7 @@ pub struct Spacer<C, S> {
     state: PhantomData<S>,
 }
 
-/// Constructs the default (empty) stack.
+/// Constructs the default (empty) spacer.
 impl<C, S> Default for Spacer<C, S> {
     fn default() -> Self {
         // We can't derive this, because it would require S to be impl Default.
@@ -31,23 +32,28 @@ impl<C, S> Default for Spacer<C, S> {
     }
 }
 
+/// We can pretend to set bounds on a spacer.
+impl<Ctx, S> Boundable for Spacer<Ctx, S> {
+    fn set_bounds(&mut self, _bounds: metrics::Rect) {}
+}
+
 /// We can layout a spacer using its minimum bounds.
-impl<C, S> Layoutable<C> for Spacer<C, S> {
-    fn min_bounds(&self, ctx: &C) -> metrics::Size {
+impl<Ctx, S> Layoutable<Ctx> for Spacer<Ctx, S> {
+    fn min_bounds(&self, ctx: &Ctx) -> metrics::Size {
         match self.min_bounds_source {
             BoundsSource::Static(s) => s,
-            BoundsSource::Context(f) => (f)(ctx),
+            BoundsSource::Context(f) => f(ctx),
         }
     }
 
-    fn layout(&mut self, _ctx: &C, _bounds: metrics::Rect) {}
+    fn layout(&mut self, _ctx: &Ctx) {}
 }
 
 /// Spacers are vacuously updatable.
-impl<C, S> Updatable<C> for Spacer<C, S> {
+impl<Ctx, S> Updatable for Spacer<Ctx, S> {
     type State = S;
 
-    fn update(&mut self, _ctx: &C, _s: &Self::State) {}
+    fn update(&mut self, _s: &Self::State) {}
 }
 
 /// Spacers are vacuously updatable.

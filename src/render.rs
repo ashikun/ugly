@@ -2,7 +2,7 @@
 
 pub mod logger;
 
-use super::{colour, error, font, metrics, resource};
+use super::{error, font, metrics};
 
 /// Trait of things that provide rendering facilities.
 ///
@@ -10,27 +10,13 @@ use super::{colour, error, font, metrics, resource};
 /// in the application.
 ///
 /// The lifetime `'f` captures any lifetime constraints on font data.
-pub trait Renderer<
-    'f,
-    Font: font::Map,
-    Fg: resource::Map<colour::Definition>,
-    Bg: resource::Map<colour::Definition>,
->
-{
-    /// Gets an immutable reference to this renderer's font metrics.
-    fn font_metrics(&self) -> &Font::MetricsMap;
-
+pub trait Renderer<'f, FontId, FgId, BgId> {
     /// Writes the layout-calculated string `str` with the font `font` and foreground colour `fg`.
     ///
     /// # Errors
     ///
     /// Fails if the renderer can't render the writing.
-    fn write(
-        &mut self,
-        font: Font::Id,
-        fg: Fg::Id,
-        str: &font::layout::String,
-    ) -> error::Result<()>;
+    fn write(&mut self, font: FontId, fg: FgId, str: &font::layout::String) -> error::Result<()>;
 
     /// Fills the rectangle `rect`, whose top-left is positioned relative to
     /// the current position, with the background colour `bg`.
@@ -38,7 +24,7 @@ pub trait Renderer<
     /// # Errors
     ///
     /// Returns an error if the renderer fails to blit the rect onto the screen.
-    fn fill(&mut self, rect: metrics::Rect, colour: Bg::Id) -> error::Result<()>;
+    fn fill(&mut self, rect: metrics::Rect, colour: BgId) -> error::Result<()>;
 
     // TODO(@MattWindsor91): replace these with RAII
 
@@ -47,7 +33,7 @@ pub trait Renderer<
     /// # Errors
     ///
     /// Returns an error if the renderer fails to clear the screen.
-    fn clear(&mut self, colour: Bg::Id) -> error::Result<()>;
+    fn clear(&mut self, colour: BgId) -> error::Result<()>;
 
     /// Refreshes the screen.
     fn present(&mut self);

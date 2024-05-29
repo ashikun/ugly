@@ -1,8 +1,9 @@
 //! The [`ZStack`] widget and its implementations.
 
+use crate::{metrics, Result};
+
 use super::super::{
-    super::{metrics, Result},
-    layout::Layoutable,
+    layout::{Boundable, Layoutable},
     render::Renderable,
     update::Updatable,
 };
@@ -25,6 +26,15 @@ impl<W> Default for ZStack<W> {
     }
 }
 
+/// We can set bounds on a Z-stack by setting bounds on its individual components.
+impl<W: Boundable> Boundable for ZStack<W> {
+    fn set_bounds(&mut self, bounds: metrics::Rect) {
+        for c in &mut self.contents {
+            c.set_bounds(bounds);
+        }
+    }
+}
+
 /// We can layout a stack by laying out its individual components, with some flexing.
 impl<C, W: Layoutable<C>> Layoutable<C> for ZStack<W> {
     fn min_bounds(&self, ctx: &C) -> metrics::Size {
@@ -33,9 +43,9 @@ impl<C, W: Layoutable<C>> Layoutable<C> for ZStack<W> {
         })
     }
 
-    fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
+    fn layout(&mut self, ctx: &C) {
         for c in &mut self.contents {
-            c.layout(ctx, bounds);
+            c.layout(ctx);
         }
     }
 }
@@ -43,12 +53,12 @@ impl<C, W: Layoutable<C>> Layoutable<C> for ZStack<W> {
 /// Z-stacks are updatable, distributing updates to their children.
 ///
 /// Each child widget must have the same state.
-impl<C, S, W: Updatable<C, State = S>> Updatable<C> for ZStack<W> {
+impl<S, W: Updatable<State = S>> Updatable for ZStack<W> {
     type State = S;
 
-    fn update(&mut self, ctx: &C, s: &Self::State) {
+    fn update(&mut self, s: &Self::State) {
         for c in &mut self.contents {
-            c.update(ctx, s);
+            c.update(s);
         }
     }
 }

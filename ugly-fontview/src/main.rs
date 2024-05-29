@@ -12,6 +12,9 @@ use winit::{
     window::WindowId,
 };
 
+use ugly::text::Writer;
+use ugly::ui::layout::{Boundable, LayoutContext};
+use ugly::ui::Updatable;
 use ugly::{
     backends::wgpu::Core,
     colour::Ega,
@@ -136,24 +139,25 @@ impl App {
         let metrics = ctx.borrow_renderer().font_metrics();
         let font_height = metrics.get(0).padded_h();
 
-        let mut labels: [Label<FontMap, Ega, Ega>; 8] = std::array::from_fn(|i| {
-            let mut label = Label::new(0, colours[i]);
+        let mut labels: [Label<_, _, _>; 8] = std::array::from_fn(|i| {
+            let writer = Writer::new(0, colours[i]);
+            let mut label = Label::new(writer);
 
-            label.layout(
-                metrics,
-                Rect::new(
-                    5,
-                    5 + (i as i32) * font_height,
-                    WIN_WIDTH as i32,
-                    font_height,
-                ),
-            );
+            label.set_bounds(Rect::new(
+                5,
+                5 + (i as i32) * font_height,
+                WIN_WIDTH as i32,
+                font_height,
+            ));
+
+            // Don't lay out yet
 
             label
         });
 
         for label in &mut labels {
-            label.update_display(metrics, &self.args.text);
+            label.update(&self.args.text);
+            label.layout(ctx.borrow_renderer());
         }
 
         ctx.with_renderer_mut(|ren| {

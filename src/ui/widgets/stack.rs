@@ -6,6 +6,7 @@ use super::super::{
     render::Renderable,
     update::Updatable,
 };
+use crate::ui::layout::Boundable;
 
 /// Homogeneous stack of widgets.
 ///
@@ -23,17 +24,25 @@ pub struct Stack<W> {
     contents: Vec<Entry<W>>,
 }
 
+/// We can bound a stack.
+///
+/// The individual components do not need to be boundable to do bounds setting
+/// but do need to be boundable to be laid out.
+impl<W> Boundable for Stack<W> {
+    fn set_bounds(&mut self, bounds: metrics::Rect) {
+        self.bounds = bounds;
+    }
+}
+
 /// We can layout a stack by laying out its individual components, with some flexing.
-impl<C, W: Layoutable<C>> Layoutable<C> for Stack<W> {
+impl<C, W: Boundable + Layoutable<C>> Layoutable<C> for Stack<W> {
     fn min_bounds(&self, ctx: &C) -> metrics::Size {
         // We can't use compute_min_bounds here, because &self is immutable.
         self.orientation
             .stack_many(self.contents.iter().map(|x| x.widget.min_bounds(ctx)))
     }
 
-    fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
-        self.bounds = bounds;
-
+    fn layout(&mut self, ctx: &C) {
         compute_min_bounds(self, ctx);
 
         let length_per_ratio = self.gap().checked_div(self.ratio_sum()).unwrap_or_default();
@@ -53,7 +62,8 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Stack<W> {
                     .clamp(0, axis);
 
                 let size = self.orientation.size(allocation, perp_axis);
-                entry.layout(ctx, metrics::Rect { top_left, size });
+                entry.set_bounds(metrics::Rect { top_left, size });
+                entry.layout(ctx);
 
                 axis -= allocation;
                 assert!(0 <= axis, "axis should never become negative");
@@ -62,7 +72,8 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Stack<W> {
 
             // Fill the rest of the stack with the remaining allocation.
             let size = self.orientation.size(axis.max(0), perp_axis);
-            last.layout(ctx, metrics::Rect { top_left, size });
+            last.set_bounds(metrics::Rect { top_left, size });
+            last.layout(ctx);
         }
     }
 }
@@ -70,12 +81,12 @@ impl<C, W: Layoutable<C>> Layoutable<C> for Stack<W> {
 /// Stacks are updatable, distributing updates to their children.
 ///
 /// Each child widget must have the same state.
-impl<C, S, W: Updatable<C, State = S>> Updatable<C> for Stack<W> {
+impl<S, W: Updatable<State = S>> Updatable for Stack<W> {
     type State = S;
 
-    fn update(&mut self, ctx: &C, s: &Self::State) {
+    fn update(&mut self, s: &Self::State) {
         for c in &mut self.contents {
-            c.update(ctx, s);
+            c.update(s);
         }
     }
 }
@@ -195,25 +206,35 @@ impl<W> Entry<W> {
     }
 }
 
+/// An entry can be bounded by delegating to its inner widget.
+/// Setting zero bounds will make the widget invisible.
+impl<W: Boundable> Boundable for Entry<W> {
+    fn set_bounds(&mut self, bounds: metrics::Rect) {
+        self.widget.set_bounds(bounds);
+        self.visible = !bounds.size.is_zero();
+    }
+}
+
 /// An entry can be laid out by delegating to its inner widget.
 impl<C, W: Layoutable<C>> Layoutable<C> for Entry<W> {
     fn min_bounds(&self, ctx: &C) -> metrics::Size {
         self.widget.min_bounds(ctx)
     }
 
-    fn layout(&mut self, ctx: &C, bounds: metrics::Rect) {
-        self.widget.layout(ctx, bounds);
-        self.visible = !bounds.size.is_zero();
+    fn layout(&mut self, ctx: &C) {
+        if self.visible {
+            self.widget.layout(ctx);
+        }
     }
 }
 
 /// Entries are updatable, distributing updates to their embedded widget.
-impl<C, S, W: Updatable<C, State = S>> Updatable<C> for Entry<W> {
+impl<S, W: Updatable<State = S>> Updatable for Entry<W> {
     type State = S;
 
-    fn update(&mut self, ctx: &C, s: &Self::State) {
+    fn update(&mut self, s: &Self::State) {
         if self.visible {
-            self.widget.update(ctx, s);
+            self.widget.update(s);
         }
     }
 }

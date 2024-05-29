@@ -2,15 +2,15 @@
 
 use std::{marker, mem};
 
-use crate::{colour, error, font, metrics, render, resource::Map};
+use crate::{error, font, metrics, render, resource::Map};
 
 /// A formatted text renderer.
 ///
 /// This type serves both as a builder for laying out and writing strings, as well as a basic cache
 /// method: the writer will try to minimise re-layouting and font acquisition when strings and
 /// options change.
-#[derive(Default, Debug, Clone)]
-pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
+#[derive(Debug, Clone)]
+pub struct Writer<FontId, FgId, BgId> {
     /// The point used as the anchor for the writing.
     pos: metrics::Point,
 
@@ -18,16 +18,16 @@ pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
     alignment: metrics::anchor::X,
 
     /// The font being used for writing.
-    pub(crate) font: Font::Id,
+    pub(crate) font: FontId,
 
     /// The foreground colour being used for writing.
-    fg: Fg::Id,
+    fg: FgId,
 
     /// The string currently being built inside this writer.
     current_str: String,
 
     /// Phantom type for the background colour.
-    bg_phantom: marker::PhantomData<Bg>,
+    bg_phantom: marker::PhantomData<BgId>,
 
     /// The most recently laid-out string.
     layout: font::layout::String,
@@ -36,29 +36,79 @@ pub struct Writer<Font: font::Map, Fg: Map<colour::Definition>, Bg> {
     layout_reusable: bool,
 }
 
-impl<Font, Fg, Bg> Writer<Font, Fg, Bg>
+impl<FontId, FgId, BgId> Default for Writer<FontId, FgId, BgId>
 where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
+    FontId: Default,
+    FgId: Default,
+    BgId: Default,
 {
-    /// Constructs a writer, using the given font metrics.
-    ///
-    /// The writer initially points to the origin and uses a left anchor.
-    #[must_use]
-    pub fn new() -> Self {
+    fn default() -> Self {
+        Self::new(FontId::default(), FgId::default())
+    }
+}
+
+impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId> {
+    /// Constructs a new writer with the given font and colours.
+    pub fn new(font: FontId, fg: FgId) -> Self {
         Self {
             pos: metrics::Point::default(),
             alignment: metrics::anchor::X::Left,
-            font: Font::Id::default(),
-            fg: Fg::Id::default(),
+            font,
+            fg,
             current_str: String::default(),
             layout: font::layout::String::default(),
             bg_phantom: marker::PhantomData {},
             layout_reusable: false,
         }
     }
+}
 
+impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId>
+where
+    FontId: Copy,
+{
+    /// Lays out the current string.
+    ///
+    /// If the string and parameters are the same as the last time this renderer was used, there
+    /// will not be a full layout calculation.  This means it is useful to reuse writers across
+    /// frames.
+    pub fn layout(&mut self, metrics: &impl Map<font::Metrics, Id = FontId>) {
+        // Optimistically assume that the next time we call `layout`, everything will be the same.
+        let reusable = mem::replace(&mut self.layout_reusable, true);
+        if !reusable {
+            self.actually_layout(metrics);
+        }
+    }
+
+    /// Lays out `str` using `metrics`.
+    fn actually_layout(&mut self, metrics: &impl Map<font::Metrics, Id = FontId>) {
+        let fm = metrics.get(self.font);
+
+        self.layout = font::layout::String::layout(fm, self.current_str.clone(), self.pos);
+        self.align_layout();
+    }
+}
+
+impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId>
+where
+    FontId: Copy,
+    FgId: Copy,
+    BgId: Copy,
+{
+    /// Renders the most recently written string.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the renderer can't blit glyphs to the screen.
+    pub fn render<'f>(
+        &self,
+        r: &mut impl render::Renderer<'f, FontId, FgId, BgId>,
+    ) -> error::Result<()> {
+        r.write(self.font, self.fg, &self.layout)
+    }
+}
+
+impl<FontId, FgId, BgId> Writer<FontId, FgId, BgId> {
     /// Gets the alignment of this writer.
     pub fn alignment(&self) -> metrics::anchor::X {
         self.alignment
@@ -90,12 +140,12 @@ where
     }
 
     /// Sets the font of this writer to `id`.
-    pub fn set_font(&mut self, font: Font::Id) {
+    pub fn set_font(&mut self, font: FontId) {
         self.font = font;
     }
 
     /// Sets the foreground colour of this writer to `fg`.
-    pub fn set_fg(&mut self, fg: Fg::Id) {
+    pub fn set_fg(&mut self, fg: FgId) {
         self.fg = fg;
     }
 
@@ -104,39 +154,6 @@ where
         let old_str = mem::replace(&mut self.current_str, str.to_string());
         // The layout needs to be junked if the string has changed.
         self.layout_reusable &= old_str == self.current_str;
-    }
-
-    /// Renders the most recently written string.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the renderer can't blit glyphs to the screen.
-    pub fn render<'f, R: render::Renderer<'f, Font, Fg, Bg>>(
-        &self,
-        r: &mut R,
-    ) -> error::Result<()> {
-        r.write(self.font, self.fg, &self.layout)
-    }
-
-    /// Lays out the current string.
-    ///
-    /// If the string and parameters are the same as the last time this renderer was used, there
-    /// will not be a full layout calculation.  This means it is useful to reuse writers across
-    /// frames.
-    pub fn layout(&mut self, metrics: &Font::MetricsMap) {
-        // Optimistically assume that the next time we call `layout`, everything will be the same.
-        let reusable = mem::replace(&mut self.layout_reusable, true);
-        if !reusable {
-            self.actually_layout(metrics);
-        }
-    }
-
-    /// Lays out `str` using `metrics`.
-    fn actually_layout(&mut self, metrics: &Font::MetricsMap) {
-        let fm = metrics.get(self.font);
-
-        self.layout = font::layout::String::layout(fm, self.current_str.clone(), self.pos);
-        self.align_layout();
     }
 
     /// Adjusts the string layout if this is not left-aligned text.
@@ -171,17 +188,9 @@ mod tests {
 
         let metrics = DefaultingHashMap::new(HashMap::<(), _>::new(), met);
 
-        let mut writer = Writer::<
-            DefaultingHashMap<(), _>,
-            DefaultingHashMap<(), _>,
-            DefaultingHashMap<(), _>,
-        >::new();
+        let mut writer = Writer::<(), (), ()>::default();
 
-        let mut r: logger::Logger<
-            DefaultingHashMap<(), _>,
-            DefaultingHashMap<(), _>,
-            DefaultingHashMap<(), _>,
-        > = logger::Logger::new(metrics);
+        let mut r: logger::Logger<(), (), ()> = logger::Logger::default();
 
         let tl1 = metrics::Point { x: 20, y: 10 };
 
@@ -190,7 +199,7 @@ mod tests {
         for _ in 0..2 {
             writer.move_to(tl1);
             writer.set_string("hello, world");
-            writer.layout(r.font_metrics());
+            writer.layout(&metrics);
 
             writer.render(&mut r).unwrap();
         }
@@ -207,7 +216,7 @@ mod tests {
         let tl2 = metrics::Point { x: 10, y: 20 };
         writer.move_to(tl2);
         writer.set_string("how's it going?");
-        writer.layout(r.font_metrics());
+        writer.layout(&metrics);
 
         r.clear(()).unwrap();
         writer.render(&mut r).unwrap();

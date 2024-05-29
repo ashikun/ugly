@@ -1,45 +1,34 @@
 //! Label widgets.
 
+use crate::ui::layout::Boundable;
+use crate::{metrics, resource::Map, text::Writer, Renderer, Result};
+use std::hash::Hash;
+
 use super::super::{
-    super::{colour, font, metrics, resource::Map, text::Writer, Renderer, Result},
-    layout::Layoutable,
+    layout::{LayoutContext, Layoutable},
     render::Renderable,
     update::Updatable,
 };
 
 /// A widget that displays a static single-line string with a static font.
 ///
-/// `Font`, `Fg`, and `Bg` are the usual font and colour ID types.
+/// `FontId`, `FgId`, and `BgId` are the usual font and colour ID types.
 #[derive(Clone)]
-pub struct Label<Font, Fg, Bg>
-where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
-{
+pub struct Label<FontId, FgId, BgId> {
     /// The most recently computed bounding box for the label.
     bounds: metrics::Rect,
 
     /// The writer for the label.
-    writer: Writer<Font, Fg, Bg>,
+    writer: Writer<FontId, FgId, BgId>,
 
     /// The minimum amount of expected characters in the label.
     pub min_chars: u8,
 }
 
-impl<Font, Fg, Bg> Label<Font, Fg, Bg>
-where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
-{
-    /// Constructs a label with the given font specification.
+impl<FontId, FgId, BgId> Label<FontId, FgId, BgId> {
+    /// Constructs a label over the given writer.
     #[must_use]
-    pub fn new(font: Font::Id, fg: Fg::Id) -> Self {
-        let mut writer = Writer::new();
-        writer.set_font(font);
-        writer.set_fg(fg);
-
+    pub fn new(writer: Writer<FontId, FgId, BgId>) -> Self {
         Self {
             bounds: metrics::Rect::default(),
             writer,
@@ -58,20 +47,21 @@ where
     }
 
     /// Sets the foreground colour of the label.
-    pub fn set_fg(&mut self, fg: Fg::Id) {
+    pub fn set_fg(&mut self, fg: FgId) {
         self.writer.set_fg(fg);
     }
 
     /// Sets the font of the label.
-    pub fn set_font(&mut self, font: Font::Id) {
+    pub fn set_font(&mut self, font: FontId) {
         self.writer.set_font(font);
     }
 
     /// Converts `str` to a string then updates the label with it.
-    pub fn update_display(&mut self, metrics: &Font::MetricsMap, str: impl std::fmt::Display) {
-        self.writer.move_to(self.writer_pos());
+    ///
+    /// Does not re-layout the string, and so the string will not be updated until `layout` is
+    /// called.
+    pub fn update_display(&mut self, str: impl std::fmt::Display) {
         self.writer.set_string(&str);
-        self.writer.layout(metrics);
     }
 
     fn writer_pos(&self) -> metrics::Point {
@@ -82,13 +72,19 @@ where
     }
 }
 
+/// We can bound a label.
+impl<FontId, FgId, BgId> Boundable for Label<FontId, FgId, BgId> {
+    fn set_bounds(&mut self, bounds: metrics::Rect) {
+        self.bounds = bounds;
+        self.writer.move_to(self.writer_pos());
+    }
+}
+
 /// We can layout a label, so long as the context serves font metrics for the font ID set in use.
-impl<Font, Fg, Bg, Ctx> Layoutable<Ctx> for Label<Font, Fg, Bg>
+impl<Ctx, FontId, FgId, BgId> Layoutable<Ctx> for Label<FontId, FgId, BgId>
 where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
-    Ctx: Context<Font>,
+    Ctx: LayoutContext<FontId>,
+    FontId: Copy + Clone + Default + Eq + Hash,
 {
     fn min_bounds(&self, ctx: &Ctx) -> metrics::Size {
         ctx.font_metrics()
@@ -96,47 +92,29 @@ where
             .text_size(i32::from(self.min_chars), 1)
     }
 
-    fn layout(&mut self, _: &Ctx, bounds: metrics::Rect) {
-        self.bounds = bounds;
+    fn layout(&mut self, ctx: &Ctx) {
+        self.writer.layout(ctx.font_metrics());
     }
 }
 
-/// We can update a label, so long as the context serves font metrics for the font ID set in use.
-impl<Font, Fg, Bg, Ctx> Updatable<Ctx> for Label<Font, Fg, Bg>
-where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
-    Ctx: Context<Font>,
-{
+/// We can update a label.
+impl<FontId, FgId, BgId> Updatable for Label<FontId, FgId, BgId> {
     type State = str;
 
-    fn update(&mut self, ctx: &Ctx, s: &Self::State) {
-        self.update_display(ctx.font_metrics(), s);
+    fn update(&mut self, s: &Self::State) {
+        self.update_display(s);
     }
 }
 
 /// Delegates rendering to the writer.
-impl<'r, Font, Fg, Bg, R: Renderer<'r, Font, Fg, Bg>> Renderable<R> for Label<Font, Fg, Bg>
+impl<'r, FontId, FgId, BgId, R: Renderer<'r, FontId, FgId, BgId>> Renderable<R>
+    for Label<FontId, FgId, BgId>
 where
-    Font: font::Map,
-    Fg: Map<colour::Definition>,
-    Bg: Map<colour::Definition>,
+    FontId: Copy,
+    FgId: Copy,
+    BgId: Copy,
 {
     fn render(&self, r: &mut R) -> Result<()> {
         self.writer.render(r)
-    }
-}
-
-/// Trait required for layout and update contexts over labels.
-pub trait Context<Font: font::Map> {
-    /// Gets the font metrics map.
-    fn font_metrics(&self) -> &Font::MetricsMap;
-}
-
-/// If we have a font map type, its metrics map is inherently a label context.
-impl<Font: font::Map> Context<Font> for Font::MetricsMap {
-    fn font_metrics(&self) -> &Font::MetricsMap {
-        self
     }
 }

@@ -2,6 +2,8 @@
 use itertools::Itertools;
 use std::rc::Rc;
 
+use crate::font::Metrics;
+use crate::resource::Map;
 use crate::{colour, font, metrics, resource, Result};
 
 use super::{core::Core, instance::Instance, shape, texture::Texture, vertex};
@@ -19,16 +21,22 @@ where
     shapes: shape::Queue,
 }
 
-impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font, Fg, Bg> for Renderer<'a, Font, Fg, Bg>
+// TODO: tidy this up
+impl<'a, Font, Fg, Bg> crate::ui::layout::LayoutContext<Font::Id> for Renderer<'a, Font, Fg, Bg>
+where
+    Font: font::Map,
+{
+    fn font_metrics(&self) -> &impl Map<Metrics, Id = Font::Id> {
+        self.font_manager.metrics()
+    }
+}
+
+impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font::Id, Fg::Id, Bg::Id> for Renderer<'a, Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
 {
-    fn font_metrics(&self) -> &Font::MetricsMap {
-        self.font_manager.metrics()
-    }
-
     fn write(&mut self, font: Font::Id, colour: Fg::Id, str: &font::layout::String) -> Result<()> {
         let colour = self.lookup_fg(colour);
 
