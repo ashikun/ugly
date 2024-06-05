@@ -125,9 +125,7 @@ impl<FontId, FgId> Writer<FontId, FgId> {
     pub fn move_to(&mut self, pos: metrics::Point) {
         if self.pos != pos {
             self.pos = pos;
-
-            // TODO(@MattWindsor91): we should be able to reuse the layout by shifting the glyphs.
-            self.layout_reusable = false;
+            self.reposition_layout();
         }
     }
 
@@ -161,10 +159,7 @@ impl<FontId, FgId> Writer<FontId, FgId> {
         // `self.alignment.offset` is the number of pixels between the left and the anchor, so we
         // need to move so that the position (which is currently the left) is *on* that anchor.
         // This means the offset must be backwards.
-        self.layout
-            .bounds
-            .top_left
-            .offset_mut(-self.alignment.offset(self.layout.bounds.size.w), 0);
+        self.layout.bounds.top_left.x -= self.alignment.offset(self.layout.bounds.size.w);
     }
 }
 
