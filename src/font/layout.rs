@@ -21,7 +21,8 @@ pub struct String {
     pub glyphs: HashMap<char, Glyph>,
 }
 
-struct Builder<'a> {
+/// A string layout builder.
+pub struct Builder<'a> {
     font_metrics: &'a Metrics,
     bounds: Rect,
     glyphs: HashMap<char, Glyph>,
@@ -34,35 +35,51 @@ struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn new(font_metrics: &'a Metrics, top_left: Point) -> Self {
-        let bounds = Rect {
-            top_left,
-            size: Size::default(),
-        };
-
+    /// Constructs a new layout builder with the given font metrics.
+    #[must_use]
+    pub fn new(font_metrics: &'a Metrics) -> Self {
         Self {
-            bounds,
+            bounds: Rect::default(),
+            font_metrics,
+            padded_h: font_metrics.padded_h(),
             glyphs: HashMap::new(),
             cursor: Point::default(),
             last_char_metrics: None,
-            font_metrics,
-            padded_h: font_metrics.padded_h(),
         }
     }
 
-    fn build(mut self, string: std::string::String) -> String {
+    /// Builds the layout for a given string.
+    #[must_use]
+    pub fn build(mut self, string: std::string::String) -> String {
+        if string.is_empty() {
+            // No characters in the string.
+            return String::default();
+        };
+
+        self.do_layout(&string);
+
+        String {
+            string,
+            bounds: self.bounds,
+            glyphs: self.glyphs,
+        }
+    }
+
+    /// Pretends to lay out a given string, but only retrieves the bounds.
+    #[must_use]
+    pub fn dry_run(mut self, string: &str) -> Rect {
+        // TODO: disable glyph storage?
+        self.do_layout(string);
+        self.bounds
+    }
+
+    fn do_layout(&mut self, string: &str) {
         for char in string.chars() {
             match char {
                 '\r' => self.carriage_return(),
                 '\n' => self.line_feed(),
                 c => self.layout_char(c),
             }
-        }
-
-        String {
-            string,
-            bounds: self.bounds,
-            glyphs: self.glyphs,
         }
     }
 
@@ -109,26 +126,6 @@ impl<'a> Builder<'a> {
 
         let dst = GlyphDst { delta: self.cursor };
         glyph.dsts.push(dst);
-    }
-}
-
-impl String {
-    /// Lays out a string `string` at `top_left`, using `metrics`.
-    ///
-    /// The resulting [String] will take ownership of `string`.
-    #[must_use]
-    pub fn layout(metrics: &Metrics, string: std::string::String, top_left: Point) -> String {
-        if string.is_empty() {
-            // No characters in the string.
-            return String::default();
-        };
-
-        Builder::new(metrics, top_left).build(string)
-    }
-
-    /// Moves each glyph in the layout by `dx` to the right and `dx` down.
-    pub fn offset_mut(&mut self, dx: Length, dy: Length) {
-        self.bounds.top_left.offset_mut(dx, dy);
     }
 }
 

@@ -103,11 +103,8 @@ impl Metrics {
     /// is accurate in the face of any proportionality in the font.
     #[must_use]
     pub fn span_w_str(&self, str: &str) -> Length {
-        // Pretend to lay out the string, then work out where the last character went.
-        layout::String::layout(self, str.to_string(), Point::default())
-            .bounds
-            .size
-            .w
+        let bounds = layout::Builder::new(self).dry_run(str);
+        bounds.size.w
     }
 
     /// Like `span_w`, but calculates the width of `c` including any proportionality adjustments.

@@ -78,9 +78,8 @@ where
     /// Lays out `str` using `metrics`.
     fn actually_layout(&mut self, metrics: &impl Map<font::Metrics, Id = FontId>) {
         let fm = metrics.get(self.font);
-
-        self.layout = font::layout::String::layout(fm, self.current_str.clone(), self.pos);
-        self.align_layout();
+        self.layout = font::layout::Builder::new(fm).build(self.current_str.clone());
+        self.reposition_layout();
     }
 }
 
@@ -150,8 +149,10 @@ impl<FontId, FgId> Writer<FontId, FgId> {
         self.layout_reusable &= old_str == self.current_str;
     }
 
-    /// Adjusts the string layout if this is not left-aligned text.
-    fn align_layout(&mut self) {
+    /// Moves the string layout to the correct position.
+    fn reposition_layout(&mut self) {
+        self.layout.bounds.top_left = self.pos;
+
         // No point doing offsets if the anchor is left; the offset would be 0.
         if let metrics::anchor::X::Left = self.alignment {
             return;
@@ -161,6 +162,8 @@ impl<FontId, FgId> Writer<FontId, FgId> {
         // need to move so that the position (which is currently the left) is *on* that anchor.
         // This means the offset must be backwards.
         self.layout
+            .bounds
+            .top_left
             .offset_mut(-self.alignment.offset(self.layout.bounds.size.w), 0);
     }
 }
