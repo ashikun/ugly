@@ -1,11 +1,12 @@
 //! Layout algorithm for strings.
 
+use std::collections::HashMap;
+
 use super::{
     super::metrics::{Anchor, Length, Point, Rect, Size},
-    metrics::chars::Entry,
+    metrics::chars,
     Metrics,
 };
-use std::collections::HashMap;
 
 /// A laid-out string.
 ///
@@ -26,8 +27,10 @@ struct Builder<'a> {
     glyphs: HashMap<char, Glyph>,
     padded_h: Length,
 
+    /// The cursor, relative to the top-left of the string layout.
     cursor: Point,
-    last_char_metrics: Option<&'a Entry>,
+    /// The metrics of the last character.
+    last_char_metrics: Option<&'a chars::Entry>,
 }
 
 impl<'a> Builder<'a> {
@@ -40,7 +43,7 @@ impl<'a> Builder<'a> {
         Self {
             bounds,
             glyphs: HashMap::new(),
-            cursor: top_left,
+            cursor: Point::default(),
             last_char_metrics: None,
             font_metrics,
             padded_h: font_metrics.padded_h(),
@@ -64,49 +67,48 @@ impl<'a> Builder<'a> {
     }
 
     fn carriage_return(&mut self) {
-        self.cursor.x = self.bounds.top_left.x;
+        self.cursor.x = 0;
+        self.last_char_metrics = None;
     }
 
     fn line_feed(&mut self) {
-        self.cursor.x = self.bounds.top_left.x;
+        self.cursor.x = 0;
         self.cursor.y += self.padded_h;
         self.bounds.size.h += self.padded_h;
+        self.last_char_metrics = None;
     }
 
     fn layout_char(&mut self, char: char) {
         let char_metrics = &self.font_metrics.chars[char];
+        self.bounds.size.w += char_metrics.width;
 
         if let Some(metrics) = self.last_char_metrics.replace(char_metrics) {
             self.move_right_with_kerning(char, metrics);
         }
 
-        let size = Size {
-            w: char_metrics.width,
-            h: self.font_metrics.char.h,
-        };
-
-        self.bounds.size = self.bounds.size.stack_horizontally(size);
-        self.push_glyph(char, size);
+        self.push_glyph(char, char_metrics);
     }
 
-    fn move_right_with_kerning(&mut self, char: char, metrics: &Entry) {
+    fn move_right_with_kerning(&mut self, char: char, metrics: &chars::Entry) {
         let kerning = metrics.kerning(char);
-        self.cursor.offset_mut(metrics.width + kerning, 0);
+        self.cursor.x += metrics.width + kerning;
         self.bounds.size.w += kerning;
     }
 
-    fn push_glyph(&mut self, char: char, size: Size) {
-        self.glyphs
-            .entry(char)
-            .and_modify(|g| g.dsts.push(self.cursor))
-            .or_insert_with(|| {
-                let src_top_left = self.font_metrics.glyph_top_left(char);
-                let src = src_top_left.to_rect(size, Anchor::TOP_LEFT);
-                Glyph {
-                    src,
-                    dsts: vec![self.cursor],
-                }
-            });
+    fn push_glyph(&mut self, char: char, metrics: &chars::Entry) {
+        let glyph = self.glyphs.entry(char).or_insert_with(|| {
+            let src_top_left = self.font_metrics.glyph_top_left(char);
+            let size = Size {
+                w: metrics.width,
+                h: self.font_metrics.char.h,
+            };
+            let src = src_top_left.to_rect(size, Anchor::TOP_LEFT);
+
+            Glyph { src, dsts: vec![] }
+        });
+
+        let dst = GlyphDst { delta: self.cursor };
+        glyph.dsts.push(dst);
     }
 }
 
@@ -126,16 +128,7 @@ impl String {
 
     /// Moves each glyph in the layout by `dx` to the right and `dx` down.
     pub fn offset_mut(&mut self, dx: Length, dy: Length) {
-        // No need to traverse if we aren't offsetting by anything.
-        if dx == 0 && dy == 0 {
-            return;
-        }
-
-        for g in &mut self.glyphs.values_mut() {
-            for dst in &mut g.dsts {
-                dst.offset_mut(dx, dy);
-            }
-        }
+        self.bounds.top_left.offset_mut(dx, dy);
     }
 }
 
@@ -145,5 +138,11 @@ pub struct Glyph {
     /// The glyph's source rectangle.
     pub src: Rect,
     /// Where to render the glyph (top-left points, assuming the size is the same as `src`).
-    pub dsts: Vec<Point>,
+    pub dsts: Vec<GlyphDst>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct GlyphDst {
+    /// The delta from the string's top-left.
+    pub delta: Point,
 }

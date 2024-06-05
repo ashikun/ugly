@@ -57,15 +57,15 @@ where
             // Assuming that the source and dest are going to be the same
             let size = glyph.src.size;
             let init_dst = metrics::Rect {
-                top_left: metrics::Point::default(),
+                top_left: str.bounds.top_left,
                 size,
             };
 
             let instances = glyph
                 .dsts
                 .iter()
-                .map(|top_left| Instance {
-                    delta: [top_left.x, top_left.y],
+                .map(|dst| Instance {
+                    delta: [dst.delta.x, dst.delta.y],
                 })
                 .collect_vec();
 
