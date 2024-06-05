@@ -23,9 +23,6 @@ pub struct Writer<FontId, FgId> {
     /// The foreground colour being used for writing.
     fg: FgId,
 
-    /// The string currently being built inside this writer.
-    current_str: String,
-
     /// The most recently laid-out string.
     layout: font::layout::String,
 
@@ -51,7 +48,6 @@ impl<FontId, FgId> Writer<FontId, FgId> {
             alignment: metrics::anchor::X::Left,
             font,
             fg,
-            current_str: String::default(),
             layout: font::layout::String::default(),
             layout_reusable: false,
         }
@@ -78,7 +74,10 @@ where
     /// Lays out `str` using `metrics`.
     fn actually_layout(&mut self, metrics: &impl Map<font::Metrics, Id = FontId>) {
         let fm = metrics.get(self.font);
-        self.layout = font::layout::Builder::new(fm).build(self.current_str.clone());
+
+        let current_string = mem::take(&mut self.layout);
+
+        self.layout = font::layout::Builder::new(fm).build(current_string.string);
         self.reposition_layout();
     }
 }
@@ -144,9 +143,10 @@ impl<FontId, FgId> Writer<FontId, FgId> {
 
     /// Sets the string-to-be-rendered to `str`.
     pub fn set_string(&mut self, str: &(impl ToString + ?Sized)) {
-        let old_str = mem::replace(&mut self.current_str, str.to_string());
+        // Store the new string inside the layout; we'll recompute the rest in a bit.
+        let old_str = mem::replace(&mut self.layout.string, str.to_string());
         // The layout needs to be junked if the string has changed.
-        self.layout_reusable &= old_str == self.current_str;
+        self.layout_reusable &= old_str == self.layout.string;
     }
 
     /// Moves the string layout to the correct position.
