@@ -28,7 +28,7 @@ pub struct Logger<FontId, FgId, BgId> {
     pub log: Vec<Command<FontId, FgId, BgId>>,
 }
 
-impl<FontId, FgId, BgId> Renderer<'static, FontId, FgId, BgId> for Logger<FontId, FgId, BgId>
+impl<FontId, FgId, BgId> Renderer<FontId, FgId, BgId> for Logger<FontId, FgId, BgId>
 where
     FontId: Default + Eq + Hash + Copy + Clone,
 {

@@ -116,7 +116,7 @@ impl<FontId, FgId, BgId> Updatable for Label<FontId, FgId, BgId> {
 }
 
 /// Delegates rendering to the writer.
-impl<'r, FontId, FgId, BgId, R: Renderer<'r, FontId, FgId, BgId>> Renderable<R>
+impl<FontId, FgId, BgId, R: Renderer<FontId, FgId, BgId>> Renderable<R>
     for Label<FontId, FgId, BgId>
 where
     FontId: Copy,

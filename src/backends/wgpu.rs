@@ -10,6 +10,7 @@ mod render;
 mod shape;
 mod texture;
 mod vertex;
+pub mod winit;
 
 pub use {
     core::Core,

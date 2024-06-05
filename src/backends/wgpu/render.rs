@@ -1,18 +1,20 @@
 //! Rendering using `wgpu`.
 use itertools::Itertools;
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
-use crate::font::Metrics;
-use crate::resource::Map;
-use crate::{colour, font, metrics, resource, Result};
+use crate::{
+    colour,
+    font::{self, Metrics},
+    metrics, resource, Error, Result,
+};
 
 use super::{core::Core, instance::Instance, shape, texture::Texture, vertex};
 
-pub struct Renderer<'a, Font, Fg, Bg>
+pub struct Renderer<Font, Fg, Bg>
 where
     Font: font::Map,
 {
-    pub core: Core<'a>,
+    pub core: Core,
 
     font_manager: font::Manager<Font, Rc<Texture>>,
     palette: colour::Palette<Fg, Bg>,
@@ -22,16 +24,16 @@ where
 }
 
 // TODO: tidy this up
-impl<'a, Font, Fg, Bg> crate::ui::layout::LayoutContext<Font::Id> for Renderer<'a, Font, Fg, Bg>
+impl<Font, Fg, Bg> crate::ui::layout::LayoutContext<Font::Id> for Renderer<Font, Fg, Bg>
 where
     Font: font::Map,
 {
-    fn font_metrics(&self) -> &impl Map<Metrics, Id = Font::Id> {
+    fn font_metrics(&self) -> &impl resource::Map<Metrics, Id = Font::Id> {
         self.font_manager.metrics()
     }
 }
 
-impl<'a, Font, Fg, Bg> crate::Renderer<'a, Font::Id, Fg::Id, Bg::Id> for Renderer<'a, Font, Fg, Bg>
+impl<Font, Fg, Bg> crate::Renderer<Font::Id, Fg::Id, Bg::Id> for Renderer<Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
@@ -106,14 +108,14 @@ where
     }
 }
 
-impl<'a, Font, Fg, Bg> Renderer<'a, Font, Fg, Bg>
+impl<Font, Fg, Bg> Renderer<Font, Fg, Bg>
 where
     Font: font::Map,
     Fg: resource::Map<colour::Definition>,
     Bg: resource::Map<colour::Definition>,
 {
     /// Constructs a new `wgpu` renderer.
-    pub fn from_core(core: Core<'a>, resources: resource::Set<Font, Fg, Bg>) -> Self {
+    pub fn from_core(core: Core, resources: resource::Set<Font, Fg, Bg>) -> Self {
         Self {
             core,
             bg: colour::Definition::default(),
@@ -121,6 +123,23 @@ where
             font_manager: font::Manager::new(resources.fonts, resources.metrics),
             palette: resources.palette,
         }
+    }
+
+    /// Constructs a new `wgpu` renderer directly from a window.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the rendering core cannot be constructed.
+    pub async fn from_window(
+        window: Arc<winit::window::Window>,
+        resources: resource::Set<Font, Fg, Bg>,
+    ) -> Result<Self> {
+        let core = Core::new(window)
+            .await
+            .map_err(|e| Error::Backend(e.to_string()))?;
+        let result = Self::from_core(core, resources);
+
+        Ok(result)
     }
 
     fn push_shape(&mut self, shape: shape::Shape) {

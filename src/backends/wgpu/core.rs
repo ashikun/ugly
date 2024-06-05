@@ -1,4 +1,5 @@
 //! The core of the `wgpu` rendering backend.
+use std::sync::Arc;
 use std::{path::Path, rc::Rc};
 use wgpu::{CommandEncoder, RenderPass, TextureView};
 
@@ -11,8 +12,8 @@ use super::{
 };
 
 /// The core of the `wgpu` renderer.
-pub struct Core<'a> {
-    surface: wgpu::Surface<'a>,
+pub struct Core {
+    surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
@@ -26,15 +27,15 @@ pub struct Core<'a> {
     uniform: buffer::Uniform,
 }
 
-impl<'a> Core<'a> {
+impl Core {
     /// Constructs a `wgpu` renderer over the given window.
     ///
     /// # Errors
     ///
     /// Fails if any part of the wgpu bring-up fails.
-    pub async fn new(window: &'a winit::window::Window) -> Result<Self> {
+    pub async fn new(window: Arc<winit::window::Window>) -> Result<Self> {
         let instance = wgpu::Instance::default();
-        let surface = instance.create_surface(window)?;
+        let surface = instance.create_surface(window.clone())?;
 
         let adapter = init::create_adapter(instance, &surface).await?;
 

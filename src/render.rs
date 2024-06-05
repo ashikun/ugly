@@ -8,9 +8,7 @@ use super::{error, font, metrics};
 ///
 /// The trait is parameterised by the specific maps used to look up font metrics and colours
 /// in the application.
-///
-/// The lifetime `'f` captures any lifetime constraints on font data.
-pub trait Renderer<'f, FontId, FgId, BgId> {
+pub trait Renderer<FontId, FgId, BgId> {
     /// Writes the layout-calculated string `str` with the font `font` and foreground colour `fg`.
     ///
     /// # Errors

@@ -94,9 +94,9 @@ where
     /// # Errors
     ///
     /// Fails if the renderer can't blit glyphs to the screen.
-    pub fn render<'f, BgId>(
+    pub fn render<BgId>(
         &self,
-        r: &mut impl render::Renderer<'f, FontId, FgId, BgId>,
+        r: &mut impl render::Renderer<FontId, FgId, BgId>,
     ) -> error::Result<()> {
         r.write(self.font, self.fg, &self.layout)
     }

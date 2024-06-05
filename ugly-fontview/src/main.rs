@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use clap::Parser;
-use futures::future::FutureExt;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
@@ -12,16 +12,18 @@ use winit::{
     window::WindowId,
 };
 
-use ugly::text::Writer;
-use ugly::ui::layout::{Boundable, LayoutContext};
-use ugly::ui::Updatable;
 use ugly::{
-    backends::wgpu::Core,
+    backends, colour,
     colour::Ega,
     font,
     metrics::Rect,
-    resource::Map,
-    ui::{widgets::Label, Layoutable, Renderable},
+    resource::{self, Map},
+    text::Writer,
+    ui::{
+        layout::{Boundable, LayoutContext},
+        widgets::Label,
+        Layoutable, Renderable, Updatable,
+    },
     Renderer,
 };
 
@@ -32,26 +34,22 @@ const WIN_HEIGHT: u32 = 480;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// The text to display on the font viewer.
-    #[arg(short, long)]
-    text: String,
+    /// Literal text to display on the font viewer.
+    #[arg(short, long, group = "input")]
+    text: Option<String>,
+
+    /// A file to display on the font viewer.
+    #[arg(short = 'f', long, group = "input")]
+    text_file: Option<PathBuf>,
 
     /// Directory of font to load
-    #[arg(short, long, default_value = "../assets/fonts/medium")]
-    font: std::path::PathBuf,
+    #[arg(short = 'F', long, default_value = "../assets/fonts/medium")]
+    font: PathBuf,
 }
 
 struct App {
     args: Args,
-    context: Option<Context>,
-}
-
-#[ouroboros::self_referencing]
-struct Context {
-    window: Window,
-    #[covariant]
-    #[borrows(window)]
-    renderer: ugly::backends::wgpu::Renderer<'this, FontMap, Ega, Ega>,
+    context: backends::wgpu::winit::Adapter<FontMap, Ega, Ega>,
 }
 
 impl ApplicationHandler for App {
@@ -62,39 +60,27 @@ impl ApplicationHandler for App {
         let window = event_loop.create_window(attributes).unwrap();
 
         let fonts = get_fonts(&self.args.font);
-        let resources =
-            ugly::resource::Set::new(fonts, ugly::colour::EGA, ugly::colour::EGA).unwrap();
+        let resources = resource::Set::new(fonts, colour::EGA, colour::EGA).unwrap();
 
-        let ctx_builder = ContextAsyncTryBuilder {
-            window,
-            renderer_builder: |w| {
-                Core::new(w)
-                    .map(|core| -> anyhow::Result<_> {
-                        let core = core?;
-                        Ok(ugly::backends::wgpu::Renderer::from_core(core, resources))
-                    })
-                    .boxed()
-            },
-        };
+        let adapter_fut = self.context.resume(window, resources);
+        pollster::block_on(adapter_fut).unwrap();
 
-        let ctx = pollster::block_on(ctx_builder.try_build()).unwrap();
-
-        ctx.borrow_window().request_redraw();
-
-        self.context = Some(ctx);
+        if let Some(w) = self.context.window() {
+            w.request_redraw();
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-                let _ = self.context.take();
+                self.context.close();
                 event_loop.exit();
             }
             WindowEvent::Resized(new_size) => {
-                self.on_core(|c| c.resize(new_size));
+                self.context.resize(new_size);
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                self.on_core(|c| c.rescale(scale_factor as f32));
+                self.context.rescale(scale_factor);
             }
             WindowEvent::RedrawRequested => {
                 // Redraw the application.
@@ -114,14 +100,14 @@ impl App {
     fn new(args: Args) -> Self {
         Self {
             args,
-            context: None,
+            context: backends::wgpu::winit::Adapter::default(),
         }
     }
 
     fn render(&mut self) -> anyhow::Result<()> {
         use ugly::colour::ega;
 
-        let Some(ctx) = &mut self.context else {
+        let Some(ren) = self.context.renderer_mut() else {
             return Ok(());
         };
 
@@ -136,7 +122,7 @@ impl App {
             ega::BaseId::White,
         ];
 
-        let metrics = ctx.borrow_renderer().font_metrics();
+        let metrics = ren.font_metrics();
         let font_height = metrics.get(0).padded_h();
 
         let mut labels: [Label<_, _, _>; 8] = std::array::from_fn(|i| {
@@ -156,29 +142,28 @@ impl App {
             label
         });
 
+        let text = if let Some(text) = self.args.text.as_deref() {
+            text.to_owned()
+        } else if let Some(path) = self.args.text_file.as_deref() {
+            std::fs::read_to_string(path)?
+        } else {
+            "The quick brown fox jumps over the lazy dog".to_owned()
+        };
+
         for label in &mut labels {
-            label.update(&self.args.text);
-            label.layout(ctx.borrow_renderer());
+            label.update(&text);
+            label.layout(ren);
         }
 
-        ctx.with_renderer_mut(|ren| {
-            ren.clear(ega::Id::Dark(ega::BaseId::Cyan))?;
+        ren.clear(ega::Id::Dark(ega::BaseId::Cyan))?;
 
-            for label in &labels {
-                label.render(ren)?;
-            }
-
-            ren.present();
-
-            Ok(())
-        })
-    }
-
-    fn on_core(&mut self, mut f: impl FnMut(&mut Core)) {
-        if let Some(ref mut ctx) = self.context {
-            ctx.with_renderer_mut(|r| f(&mut r.core));
-            ctx.borrow_window().request_redraw();
+        for label in &labels {
+            label.render(ren)?;
         }
+
+        ren.present();
+
+        Ok(())
     }
 }
 
