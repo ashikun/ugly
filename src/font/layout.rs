@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use super::{
-    super::metrics::{Anchor, Length, Point, Rect, Size},
+    super::metrics::{point, Anchor, Length, Rect, Size},
     metrics::chars,
     Metrics,
 };
@@ -17,19 +17,47 @@ pub struct String {
     pub string: std::string::String,
     /// The bounding box.
     pub bounds: Rect,
-    /// The positions of each glyph, grouped by character.
-    pub glyphs: HashMap<char, Glyph>,
+    /// The positions of each glyph.
+    pub glyphs: GlyphSet,
+}
+
+/// The set of glyph positions (source and destination) making up a string.
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
+pub struct GlyphSet {
+    glyphs: HashMap<Rect, Vec<point::Delta>>,
+}
+
+impl<'a> IntoIterator for &'a GlyphSet {
+    type Item = Glyph<'a>;
+    type IntoIter = std::iter::Map<
+        std::collections::hash_map::Iter<'a, Rect, Vec<point::Delta>>,
+        fn((&'a Rect, &'a Vec<point::Delta>)) -> Glyph<'a>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.glyphs
+            .iter()
+            .map(|(src, dsts)| Glyph { src: *src, dsts })
+    }
+}
+
+impl GlyphSet {
+    fn add(&mut self, src: Rect, delta: point::Delta) {
+        let dsts = self.glyphs.entry(src).or_insert_with(|| vec![]);
+
+        dsts.push(delta);
+    }
 }
 
 /// A string layout builder.
 pub struct Builder<'a> {
     font_metrics: &'a Metrics,
     bounds: Rect,
-    glyphs: HashMap<char, Glyph>,
+    glyphs: GlyphSet,
     padded_h: Length,
 
-    /// The cursor, relative to the top-left of the string layout.
-    cursor: Point,
+    /// The cursor, as an offset on the top-left of the string layout.
+    cursor: point::Delta,
     /// The metrics of the last character.
     last_char_metrics: Option<&'a chars::Entry>,
 }
@@ -42,8 +70,8 @@ impl<'a> Builder<'a> {
             bounds: Rect::default(),
             font_metrics,
             padded_h: font_metrics.padded_h(),
-            glyphs: HashMap::new(),
-            cursor: Point::default(),
+            glyphs: GlyphSet::default(),
+            cursor: point::Delta::default(),
             last_char_metrics: None,
         }
     }
@@ -84,13 +112,13 @@ impl<'a> Builder<'a> {
     }
 
     fn carriage_return(&mut self) {
-        self.cursor.x = 0;
+        self.cursor.dx = 0;
         self.last_char_metrics = None;
     }
 
     fn line_feed(&mut self) {
-        self.cursor.x = 0;
-        self.cursor.y += self.padded_h;
+        self.cursor.dx = 0;
+        self.cursor.dy += self.padded_h;
         self.bounds.size.h += self.padded_h;
         self.last_char_metrics = None;
     }
@@ -103,43 +131,32 @@ impl<'a> Builder<'a> {
             self.move_right_with_kerning(char, metrics);
         }
 
-        self.push_glyph(char, char_metrics);
+        let src = self.char_src_rect(char, char_metrics);
+        self.glyphs.add(src, self.cursor);
     }
 
     fn move_right_with_kerning(&mut self, char: char, metrics: &chars::Entry) {
         let kerning = metrics.kerning(char);
-        self.cursor.x += metrics.width + kerning;
+        self.cursor.dx += metrics.width + kerning;
         self.bounds.size.w += kerning;
     }
 
-    fn push_glyph(&mut self, char: char, metrics: &chars::Entry) {
-        let glyph = self.glyphs.entry(char).or_insert_with(|| {
-            let src_top_left = self.font_metrics.glyph_top_left(char);
-            let size = Size {
-                w: metrics.width,
-                h: self.font_metrics.char.h,
-            };
-            let src = src_top_left.to_rect(size, Anchor::TOP_LEFT);
-
-            Glyph { src, dsts: vec![] }
-        });
-
-        let dst = GlyphDst { delta: self.cursor };
-        glyph.dsts.push(dst);
+    fn char_src_rect(&self, char: char, metrics: &chars::Entry) -> Rect {
+        // TODO: cache
+        let src_top_left = self.font_metrics.glyph_top_left(char);
+        let size = Size {
+            w: metrics.width,
+            h: self.font_metrics.char.h,
+        };
+        src_top_left.to_rect(size, Anchor::TOP_LEFT)
     }
 }
 
 /// A representation of a glyph to be rendered.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Glyph {
+pub struct Glyph<'a> {
     /// The glyph's source rectangle.
     pub src: Rect,
-    /// Where to render the glyph (top-left points, assuming the size is the same as `src`).
-    pub dsts: Vec<GlyphDst>,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct GlyphDst {
-    /// The delta from the string's top-left.
-    pub delta: Point,
+    /// Where to render the glyph (as a delta against the top-left points, assuming the size is the same as `src`).
+    pub dsts: &'a [point::Delta],
 }

@@ -7,7 +7,7 @@ use super::{
 };
 
 /// Output-independent rectangle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Rect {
     /// Position of the top-left of this rectangle.
     pub top_left: Point,

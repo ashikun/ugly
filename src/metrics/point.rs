@@ -36,7 +36,7 @@ impl Point {
     /// assert_eq!(12, r.y);
     /// ```
     #[must_use]
-    pub fn offset(mut self, dx: Length, dy: i32) -> Self {
+    pub fn offset(mut self, dx: Length, dy: Length) -> Self {
         self.offset_mut(dx, dy);
         self
     }
@@ -82,4 +82,13 @@ impl Point {
             size,
         }
     }
+}
+
+/// A two-dimensional delta on a point.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+pub struct Delta {
+    /// The X-offset of the point.
+    pub dx: Coord,
+    /// The Y-offset of the point.
+    pub dy: Coord,
 }

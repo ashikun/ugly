@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::length::{self, Length};
 
 /// A two-dimensional size.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Size {
     /// Width in pixels.
     pub w: Length,

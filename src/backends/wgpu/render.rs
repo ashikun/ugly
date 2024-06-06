@@ -47,7 +47,7 @@ where
             .data(font, |p| super::font::load(&mut self.core, p))
             .cloned()?;
 
-        for glyph in str.glyphs.values() {
+        for glyph in &str.glyphs {
             let material = vertex::Material {
                 texture: texture.clone(),
                 colour,
@@ -65,7 +65,7 @@ where
                 .dsts
                 .iter()
                 .map(|dst| Instance {
-                    delta: [dst.delta.x, dst.delta.y],
+                    delta: [dst.dx, dst.dy],
                 })
                 .collect_vec();
 
