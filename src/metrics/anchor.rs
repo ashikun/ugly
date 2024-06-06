@@ -55,6 +55,8 @@ pub enum X {
     /// left-to-right languages naturally proceeds from the top-left.
     #[default]
     Left,
+    /// Anchoring to the centre.
+    Centre,
     /// Anchoring to the right edge.
     Right,
 }
@@ -68,12 +70,14 @@ impl X {
     /// use ugly::metrics::anchor;
     ///
     /// assert_eq!(0, anchor::X::Left.offset(320));
+    /// assert_eq!(160, anchor::X::Centre.offset(320));
     /// assert_eq!(320, anchor::X::Right.offset(320));
     /// ```
     #[must_use]
     pub fn offset(self, width: i32) -> i32 {
         match self {
             Self::Left => 0,
+            Self::Centre => width / 2,
             Self::Right => width,
         }
     }

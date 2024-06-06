@@ -77,7 +77,9 @@ where
 
         let current_string = mem::take(&mut self.layout);
 
-        self.layout = font::layout::Builder::new(fm).build(current_string.string);
+        self.layout = font::layout::Builder::new(fm)
+            .with_alignment(self.alignment)
+            .build(current_string.string);
         self.reposition_layout();
     }
 }

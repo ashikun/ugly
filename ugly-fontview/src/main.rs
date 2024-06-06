@@ -1,15 +1,12 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use clap::Parser;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
     event::*,
-    event_loop::ActiveEventLoop,
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-    window::WindowId,
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::{Window, WindowId},
 };
 
 use ugly::{
@@ -45,6 +42,30 @@ struct Args {
     /// Directory of font to load
     #[arg(short = 'F', long, default_value = "../assets/fonts/medium")]
     font: PathBuf,
+
+    #[arg(short = 'a', long, default_value = "left")]
+    alignment: Alignment,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Alignment(ugly::metrics::anchor::X);
+
+impl clap::ValueEnum for Alignment {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            Alignment(ugly::metrics::anchor::X::Left),
+            Alignment(ugly::metrics::anchor::X::Centre),
+            Alignment(ugly::metrics::anchor::X::Right),
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(match self.0 {
+            ugly::metrics::anchor::X::Left => "left",
+            ugly::metrics::anchor::X::Centre => "centre",
+            ugly::metrics::anchor::X::Right => "right",
+        }))
+    }
 }
 
 struct App {
@@ -129,7 +150,7 @@ impl App {
             let writer = Writer::new(0, ega::Id::Bright(colours[i]));
             let mut label = Label::new(writer);
             label.set_bg(ega::Id::Dark(colours[i]));
-
+            label.align_to(self.args.alignment.0);
             label.set_bounds(Rect::new(
                 5,
                 5 + (i as i32) * font_height,
